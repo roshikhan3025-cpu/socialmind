@@ -1,49 +1,43 @@
 import { useState } from "react";
-import { useAuth } from "../../context/AuthContext";
-import { isMetaMaskInstalled } from "../../lib/metamask";
-import { FiAlertCircle, FiLoader } from "react-icons/fi";
-
-function MetaMaskLogo() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 35 33" fill="none">
-      <path d="M32.96 1l-13.14 9.72 2.45-5.73L32.96 1z" fill="#E2761B" stroke="#E2761B" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M2.66 1l13.02 9.81L13.35 4.99 2.66 1z" fill="#E4761B" stroke="#E4761B" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M28.23 23.53l-3.5 5.36 7.49 2.06 2.14-7.28-6.13-.14z" fill="#E4761B" stroke="#E4761B" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M1.27 23.67l2.13 7.28 7.47-2.06-3.48-5.36-6.12.14z" fill="#E4761B" stroke="#E4761B" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M10.47 14.51l-2.08 3.14 7.4.34-.26-7.96-5.06 4.48z" fill="#E4761B" stroke="#E4761B" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M25.15 14.51l-5.13-4.58-.17 8.06 7.4-.34-2.1-3.14z" fill="#E4761B" stroke="#E4761B" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M10.87 28.89l4.49-2.16-3.88-3.02-.61 5.18z" fill="#E4761B" stroke="#E4761B" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M20.29 26.73l4.46 2.16-.6-5.18-3.86 3.02z" fill="#E4761B" stroke="#E4761B" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-}
+import { FiAlertCircle, FiLoader, FiMail, FiLock } from "react-icons/fi";
 
 export function LoginPage() {
-  const { connectWallet, error, clearError, isLoading } = useAuth();
-  const [connecting, setConnecting] = useState(false);
-  const hasMetaMask = isMetaMaskInstalled();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleConnect = async () => {
-    clearError();
-    setConnecting(true);
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
     try {
-      await connectWallet();
-    } catch {
-      // error handled in context
+      // Placeholder: In production, this would authenticate against your backend
+      if (!email || !password) {
+        setError("Email and password are required");
+        return;
+      }
+      
+      // Mock authentication - replace with real backend call
+      const token = btoa(`${email}:${password}`);
+      localStorage.setItem("socialmind-token", token);
+      localStorage.setItem("socialmind-user", JSON.stringify({
+        id: "user-1",
+        email,
+        name: email.split("@")[0],
+        createdAt: Date.now(),
+      }));
+      
+      // Trigger auth refresh - this would be handled by your app router
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
     } finally {
-      setConnecting(false);
+      setLoading(false);
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="auth-page">
-        <div className="auth-loading">
-          <div className="loading-spinner" />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="auth-page">
@@ -54,10 +48,6 @@ export function LoginPage() {
           </div>
           <h1 className="auth-title">SocialMind</h1>
           <p className="auth-subtitle">Autonomous AI Social Media Agent</p>
-          <p className="auth-chain-badge">
-            <span className="chain-dot" />
-            Base Chain
-          </p>
         </div>
 
         {error && (
@@ -67,36 +57,63 @@ export function LoginPage() {
           </div>
         )}
 
-        {!hasMetaMask ? (
-          <div className="auth-no-metamask">
-            <MetaMaskLogo />
-            <p>MetaMask is required to use SocialMind</p>
-            <a
-              href="https://metamask.io/download/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="auth-install-btn"
-            >
-              Install MetaMask
-            </a>
+        <form onSubmit={handleLogin} className="auth-form">
+          <div className="form-group">
+            <label htmlFor="email" className="form-label">
+              <FiMail size={18} />
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              className="auth-input"
+              required
+            />
           </div>
-        ) : connecting ? (
-          <div className="auth-signing">
-            <FiLoader className="spin" size={28} />
-            <p>Confirm in MetaMask...</p>
-            <p className="auth-signing-hint">Sign the message to verify your wallet</p>
-          </div>
-        ) : (
-          <button className="auth-wallet-btn" onClick={handleConnect}>
-            <MetaMaskLogo />
-            <span>Connect with MetaMask</span>
-          </button>
-        )}
 
-        <div className="auth-wallet-info">
-          <p>Connect your MetaMask wallet on Base chain.</p>
-          <p>No email, no password — just your wallet.</p>
-        </div>
+          <div className="form-group">
+            <label htmlFor="password" className="form-label">
+              <FiLock size={18} />
+              Password
+            </label>
+            <div className="password-input-wrapper">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="auth-input"
+                required
+              />
+              <button
+                type="button"
+                className="toggle-password-btn"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="auth-submit-btn"
+          >
+            {loading ? (
+              <>
+                <FiLoader className="spin" size={18} />
+                <span>Signing in...</span>
+              </>
+            ) : (
+              <span>Sign In</span>
+            )}
+          </button>
+        </form>
 
         <div className="auth-features">
           <div className="auth-feature">

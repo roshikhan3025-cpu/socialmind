@@ -2,10 +2,15 @@ import { useState } from "react";
 import { useChat } from "../context/ChatContext";
 import { AVAILABLE_MODELS } from "../types/chat";
 import { FiX, FiEye, FiEyeOff, FiSave } from "react-icons/fi";
+import type { AIProvider } from "../types/chat";
 
 export function SettingsPanel() {
   const { state, dispatch, updateSettings } = useChat();
-  const [showKey, setShowKey] = useState(false);
+  const [showKeys, setShowKeys] = useState<Record<AIProvider, boolean>>({
+    "4everland": false,
+    groq: false,
+    gemini: false,
+  });
   const [localSettings, setLocalSettings] = useState({ ...state.settings });
   const [saved, setSaved] = useState(false);
 
@@ -21,6 +26,10 @@ export function SettingsPanel() {
     dispatch({ type: "SET_SETTINGS_OPEN", open: false });
   };
 
+  const toggleKeyVisibility = (provider: AIProvider) => {
+    setShowKeys((prev) => ({ ...prev, [provider]: !prev[provider] }));
+  };
+
   // Group models by provider
   const providers = AVAILABLE_MODELS.reduce(
     (acc, m) => {
@@ -30,6 +39,12 @@ export function SettingsPanel() {
     },
     {} as Record<string, typeof AVAILABLE_MODELS>
   );
+
+  const providerOptions: { label: string; value: AIProvider; description: string }[] = [
+    { label: "4everland", value: "4everland", description: "Multi-model API gateway" },
+    { label: "Groq", value: "groq", description: "Fast LLM inference" },
+    { label: "Google Gemini", value: "gemini", description: "Google's latest AI models" },
+  ];
 
   return (
     <div className="settings-overlay" onClick={handleClose}>
@@ -42,41 +57,101 @@ export function SettingsPanel() {
         </div>
 
         <div className="settings-body">
-          {/* API Key */}
+          {/* AI Provider Selection */}
           <div className="settings-section">
-            <h3>API Configuration</h3>
-
+            <h3>AI Provider</h3>
             <label className="settings-label">
-              4everland API Key
-              <div className="api-key-input">
-                <input
-                  type={showKey ? "text" : "password"}
-                  value={localSettings.apiKey}
-                  onChange={(e) =>
-                    setLocalSettings({ ...localSettings, apiKey: e.target.value })
-                  }
-                  placeholder="Enter your 4everland API key"
-                  className="settings-input"
-                />
-                <button
-                  className="icon-btn"
-                  onClick={() => setShowKey(!showKey)}
-                  type="button"
-                >
-                  {showKey ? <FiEyeOff /> : <FiEye />}
-                </button>
-              </div>
-              <span className="settings-hint">
-                Get your API key from{" "}
-                <a
-                  href="https://dashboard.4everland.org"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  4everland Dashboard
-                </a>
-              </span>
+              Select Provider
+              <select
+                value={localSettings.aiProvider}
+                onChange={(e) =>
+                  setLocalSettings({
+                    ...localSettings,
+                    aiProvider: e.target.value as AIProvider,
+                  })
+                }
+                className="settings-select"
+              >
+                {providerOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} - {opt.description}
+                  </option>
+                ))}
+              </select>
             </label>
+          </div>
+
+          {/* API Keys Configuration */}
+          <div className="settings-section">
+            <h3>API Keys Configuration</h3>
+
+            {providerOptions.map((provider) => (
+              <label key={provider.value} className="settings-label">
+                {provider.label} API Key
+                <div className="api-key-input">
+                  <input
+                    type={showKeys[provider.value] ? "text" : "password"}
+                    value={localSettings.apiKeys[provider.value]}
+                    onChange={(e) =>
+                      setLocalSettings({
+                        ...localSettings,
+                        apiKeys: {
+                          ...localSettings.apiKeys,
+                          [provider.value]: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder={`Enter your ${provider.label} API key`}
+                    className="settings-input"
+                  />
+                  <button
+                    className="icon-btn"
+                    onClick={() => toggleKeyVisibility(provider.value)}
+                    type="button"
+                  >
+                    {showKeys[provider.value] ? <FiEyeOff /> : <FiEye />}
+                  </button>
+                </div>
+                <span className="settings-hint">
+                  {provider.value === "4everland" && (
+                    <>
+                      Get your API key from{" "}
+                      <a
+                        href="https://dashboard.4everland.org"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        4everland Dashboard
+                      </a>
+                    </>
+                  )}
+                  {provider.value === "groq" && (
+                    <>
+                      Get your API key from{" "}
+                      <a
+                        href="https://console.groq.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Groq Console
+                      </a>
+                    </>
+                  )}
+                  {provider.value === "gemini" && (
+                    <>
+                      Get your API key from{" "}
+                      <a
+                        href="https://aistudio.google.com/app/apikey"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Google AI Studio
+                      </a>
+                    </>
+                  )}
+                </span>
+              </label>
+            ))}
 
             <label className="settings-label">
               Site URL (optional)

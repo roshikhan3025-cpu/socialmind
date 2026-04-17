@@ -6,15 +6,12 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { authGetNonce, authWalletLogin, authGetMe } from "../utils/api";
-import { connectMetaMask, signMessage, onAccountsChanged } from "../lib/metamask";
 
 interface User {
   id: string;
   email: string;
   name: string;
   image?: string;
-  walletAddress?: string;
   createdAt: number;
 }
 
@@ -22,7 +19,6 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  connectWallet: () => Promise<void>;
   logout: () => void;
   error: string | null;
   clearError: () => void;
@@ -30,78 +26,43 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 const TOKEN_KEY = "socialmind-token";
+const USER_KEY = "socialmind-user";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Check for existing session
+  // Check for existing session on mount
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY);
-    if (token) {
-      authGetMe()
-        .then((data) => setUser(data.user))
-        .catch(() => localStorage.removeItem(TOKEN_KEY))
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Listen for MetaMask account switches — logout if account changes
-  useEffect(() => {
-    const unsub = onAccountsChanged((accounts) => {
-      if (accounts.length === 0 || (user?.walletAddress && accounts[0]?.toLowerCase() !== user.walletAddress)) {
+    const storedUser = localStorage.getItem(USER_KEY);
+    if (token && storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+      } catch {
         localStorage.removeItem(TOKEN_KEY);
-        setUser(null);
+        localStorage.removeItem(USER_KEY);
       }
-    });
-    return unsub;
-  }, [user?.walletAddress]);
-
-  const connectWallet = useCallback(async () => {
-    setError(null);
-    try {
-      // 1. Connect MetaMask + switch to Base
-      const address = await connectMetaMask();
-
-      // 2. Get a nonce from our backend
-      const { nonce } = await authGetNonce();
-
-      // 3. Build the sign-in message
-      const message = [
-        "Sign in to SocialMind",
-        "",
-        `Wallet: ${address}`,
-        `Chain: Base (8453)`,
-        `Nonce: ${nonce}`,
-        `Issued At: ${new Date().toISOString()}`,
-      ].join("\n");
-
-      // 4. Ask MetaMask to sign it
-      const signature = await signMessage(address, message);
-
-      // 5. Verify on backend + get JWT
-      const data = await authWalletLogin(address, signature, message, nonce);
-      localStorage.setItem(TOKEN_KEY, data.token);
-      setUser(data.user);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Wallet connection failed";
-      // Don't show error if user rejected the request
-      if (!msg.includes("rejected") && !msg.includes("denied") && !msg.includes("User rejected")) {
-        setError(msg);
-      }
-      throw err;
     }
+    setIsLoading(false);
   }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     setUser(null);
   }, []);
 
   const clearError = useCallback(() => setError(null), []);
+
+  // Expose auth functions to be called from login component
+  const setUserData = useCallback((userData: User, token: string) => {
+    setUser(userData);
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(userData));
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -109,7 +70,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
-        connectWallet,
         logout,
         error,
         clearError,
@@ -125,3 +85,9 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
+
+// Export for use in login component
+export const setAuthUser = (userData: User, token: string) => {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(userData));
+};

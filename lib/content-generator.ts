@@ -1,17 +1,25 @@
 // ============================================================
 // SocialMind — AI Content Generator
 // Uses agent personality config to generate platform-specific posts
+// Supports: 4everland, Groq, Google Gemini
 // ============================================================
 
 import type { AgentConfig, Platform, ContentMixType } from '../src/types/agent.js';
 
-const API_BASE = 'https://ai.api.4everland.org/api/v1';
+type AIProvider = '4everland' | 'groq' | 'gemini';
 
 interface GeneratedContent {
   text: string;
   platform: Platform;
   type: ContentMixType;
   hashtags: string[];
+  provider?: AIProvider;
+}
+
+interface ProviderConfig {
+  baseUrl: string;
+  apiKey: string;
+  defaultModel: string;
 }
 
 function buildSystemPrompt(agent: AgentConfig): string {
@@ -85,57 +93,118 @@ ${agent.rules.includeEmojis ? '- Include relevant emojis naturally' : '- No emoj
 IMPORTANT: Return ONLY the post content. No quotes, no metadata, no explanation. Just the raw post text.`;
 }
 
+// Provider API endpoints
+const PROVIDER_CONFIGS: Record<AIProvider, string> = {
+  '4everland': 'https://ai.api.4everland.org/api/v1/chat/completions',
+  'groq': 'https://api.groq.com/openai/v1/chat/completions',
+  'gemini': 'https://generativelanguage.googleapis.com/v1beta/models/',
+};
+
+async function callAIProvider(
+  provider: AIProvider,
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  apiKey: string,
+): Promise<string> {
+  if (provider === 'gemini') {
+    // Google Gemini API format
+    const endpoint = `${PROVIDER_CONFIGS[provider]}${model}:generateContent?key=${apiKey}`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: messages.map((msg) => ({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }],
+        })),
+        generationConfig: {
+          temperature: 0.9,
+          maxOutputTokens: 1024,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Gemini API error: ${error}`);
+    }
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  } else {
+    // OpenAI-compatible format (4everland, Groq)
+    const response = await fetch(PROVIDER_CONFIGS[provider], {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.9,
+        max_tokens: 1024,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`${provider} API error: ${error}`);
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || '';
+  }
+}
+
 export async function generateContent(
   agent: AgentConfig,
   platform: Platform,
   contentType: ContentMixType,
+  provider: AIProvider = '4everland',
+  apiKey?: string,
 ): Promise<GeneratedContent> {
-  const apiKey = process.env.FOUREVERLAND_API_KEY;
-  if (!apiKey) throw new Error('FOUREVERLAND_API_KEY not configured');
+  if (!apiKey) {
+    throw new Error(`API key required for ${provider}`);
+  }
 
+  // Select appropriate model based on provider
+  const modelMap: Record<AIProvider, string> = {
+    '4everland': 'anthropic/claude-sonnet-4',
+    'groq': 'mixtral-8x7b-32768',
+    'gemini': 'gemini-2.0-flash',
+  };
+
+  const model = modelMap[provider];
   const maxLength = agent.rules.maxPostLength[platform];
   const systemPrompt = buildSystemPrompt(agent);
   const userPrompt = buildContentPrompt(platform, contentType, maxLength, agent);
 
-  const response = await fetch(`${API_BASE}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'anthropic/claude-sonnet-4',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.9,
-      max_tokens: 1024,
-    }),
-  });
+  const text = await callAIProvider(
+    provider,
+    model,
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    apiKey,
+  );
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`AI API error: ${error}`);
-  }
-
-  const data = await response.json();
-  let text = data.choices?.[0]?.message?.content || '';
-
-  // Trim to max length if needed
-  if (text.length > maxLength) {
-    text = text.slice(0, maxLength - 3) + '...';
+  let trimmedText = text;
+  if (trimmedText.length > maxLength) {
+    trimmedText = trimmedText.slice(0, maxLength - 3) + '...';
   }
 
   // Extract hashtags
   const hashtagRegex = /#[\w]+/g;
-  const hashtags = text.match(hashtagRegex) || [];
+  const hashtags = trimmedText.match(hashtagRegex) || [];
 
   return {
-    text,
+    text: trimmedText,
     platform,
     type: contentType,
     hashtags,
+    provider,
   };
 }
 

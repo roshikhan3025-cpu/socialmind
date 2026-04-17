@@ -4,6 +4,7 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   model?: string;
+  provider?: AIProvider;
   tokenUsage?: TokenUsage;
   isStreaming?: boolean;
 }
@@ -29,8 +30,15 @@ export interface ModelOption {
   provider: string;
 }
 
+export type AIProvider = "4everland" | "groq" | "gemini";
+
 export interface AppSettings {
-  apiKey: string;
+  aiProvider: AIProvider;
+  apiKeys: {
+    "4everland": string;
+    groq: string;
+    gemini: string;
+  };
   model: string;
   theme: "dark" | "light";
   temperature: number;
@@ -42,7 +50,12 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  apiKey: "", // No longer needed client-side — backend proxies all requests
+  aiProvider: "4everland",
+  apiKeys: {
+    "4everland": "",
+    groq: "",
+    gemini: "",
+  },
   model: "anthropic/claude-sonnet-4",
   theme: "dark",
   temperature: 1,
