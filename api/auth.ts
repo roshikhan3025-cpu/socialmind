@@ -173,11 +173,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           audience: process.env.GOOGLE_CLIENT_ID || '161519531242-0gnr8u7gmh25v92n06knvph438p46bs8.apps.googleusercontent.com',
         });
         const payload = ticket.getPayload();
-        if (!payload || !payload.email) return res.status(401).json({ error: 'Invalid Google token' });
+        if (!payload || !payload.email) return res.status(401).json({ error: 'Invalid Google token payload' });
 
         const email = payload.email.toLowerCase();
         const name = payload.name || email.split('@')[0];
         const image = payload.picture || '';
+
+        // Ensure users table exists
+        await query(`CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          email TEXT UNIQUE,
+          name TEXT,
+          image TEXT,
+          wallet_address TEXT UNIQUE,
+          auth_provider TEXT,
+          created_at BIGINT NOT NULL
+        )`).catch(err => console.error('Table creation error:', err));
 
         // Find or create user by email
         let user = await queryOne<{ id: string; email: string; name: string; image: string; created_at: number }>(
@@ -201,8 +212,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json({ token: generateToken(user.id), user });
       } catch (err) {
-        console.error('Google verification error:', err);
-        return res.status(401).json({ error: 'Google authentication failed' });
+        console.error('Google Auth Critical Error:', err);
+        return res.status(401).json({ 
+          error: 'Google authentication failed', 
+          details: err instanceof Error ? err.message : String(err) 
+        });
       }
     }
 
