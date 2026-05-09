@@ -19,7 +19,7 @@ interface ComposioActionResult {
   error?: string | null;
 }
 
-const COMPOSIO_API_BASE = 'https://backend.composio.dev/api/v2';
+const COMPOSIO_API_BASE = 'https://backend.composio.dev/api/v3.1';
 
 async function executeComposioAction(
   actionSlug: string,
@@ -29,15 +29,15 @@ async function executeComposioAction(
   const apiKey = process.env.COMPOSIO_API_KEY;
   if (!apiKey) throw new Error('COMPOSIO_API_KEY not configured');
 
-  const response = await fetch(`${COMPOSIO_API_BASE}/actions/${actionSlug}/execute`, {
+  const response = await fetch(`${COMPOSIO_API_BASE}/tools/execute/${actionSlug}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
     },
     body: JSON.stringify({
-      connectedAccountId,
-      input: params,
+      connected_account_id: connectedAccountId,
+      arguments: params,
     }),
   });
 

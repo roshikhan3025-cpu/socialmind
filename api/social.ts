@@ -7,7 +7,7 @@ import { query, queryOne, queryAll } from '../lib/db.js';
 import { verifyToken } from './auth.js';
 import crypto from 'crypto';
 
-const COMPOSIO_API_BASE = 'https://backend.composio.dev/api/v2';
+const COMPOSIO_API_BASE = 'https://backend.composio.dev/api/v3.1';
 const PLATFORMS = ['twitter', 'facebook', 'instagram'] as const;
 const INTEGRATION_MAP: Record<string, string> = { twitter: 'twitter', facebook: 'facebook', instagram: 'instagram' };
 
@@ -33,20 +33,30 @@ async function handleConnect(req: VercelRequest, res: VercelResponse, userId: st
   if (!process.env.COMPOSIO_API_KEY) return res.status(500).json({ error: 'Composio API key not configured' });
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  let integrationId: string | null = null;
+  let authConfigId: string | null = null;
   try {
-    const integrationsRes = await composioRequest(`/integrations?appName=${INTEGRATION_MAP[platform]}`);
-    const items = integrationsRes.items || integrationsRes;
-    if (Array.isArray(items) && items.length > 0) integrationId = items[0].id;
-  } catch { /* fallback */ }
+    const authConfigsRes = await composioRequest(`/auth_configs?toolkitSlug=${INTEGRATION_MAP[platform]}`);
+    const items = authConfigsRes.items || [];
+    if (items.length > 0) authConfigId = items[0].id;
+  } catch (e) {
+    console.error('Error finding auth config:', e);
+  }
+
+  if (!authConfigId) {
+    return res.status(400).json({ error: `No auth config found for ${platform}. Please enable it in Composio dashboard.` });
+  }
 
   const redirectUrl = `${appUrl}/api/social?action=callback&platform=${platform}&userId=${userId}`;
-  const connectPayload: Record<string, unknown> = { integrationId: integrationId || undefined, userUuid: userId, redirectUri: redirectUrl, data: {} };
-  if (!integrationId) connectPayload.appName = INTEGRATION_MAP[platform];
+  const connectPayload: Record<string, unknown> = { 
+    auth_config_id: authConfigId, 
+    user_id: userId, 
+    callback_url: redirectUrl, 
+    data: {} 
+  };
 
-  const connectRes = await composioRequest('/connectedAccounts', { method: 'POST', body: JSON.stringify(connectPayload) });
-  const authUrl = connectRes.redirectUrl || connectRes.connectionStatus?.redirectUrl || connectRes.url || null;
-  const connectedAccountId = connectRes.connectedAccountId || connectRes.id || null;
+  const connectRes = await composioRequest('/connected_accounts/link', { method: 'POST', body: JSON.stringify(connectPayload) });
+  const authUrl = connectRes.redirect_url || connectRes.url || null;
+  const connectedAccountId = connectRes.connected_account_id || connectRes.id || null;
   if (!authUrl) return res.status(500).json({ error: `Composio did not return an authorization URL for ${platform}` });
 
   await query(
@@ -67,7 +77,7 @@ async function handleDisconnect(req: VercelRequest, res: VercelResponse, userId:
   const row = await queryOne<{ connected_account_id: string }>(
     'SELECT connected_account_id FROM platform_connections WHERE user_id = $1 AND platform = $2', [userId, platform]);
   if (row?.connected_account_id && process.env.COMPOSIO_API_KEY) {
-    try { await fetch(`${COMPOSIO_API_BASE}/connectedAccounts/${row.connected_account_id}`, { method: 'DELETE', headers: { 'x-api-key': process.env.COMPOSIO_API_KEY } }); } catch { /* non-fatal */ }
+    try { await fetch(`${COMPOSIO_API_BASE}/connected_accounts/${row.connected_account_id}`, { method: 'DELETE', headers: { 'x-api-key': process.env.COMPOSIO_API_KEY } }); } catch { /* non-fatal */ }
   }
   await query('UPDATE platform_connections SET connected = false, connected_account_id = NULL, handle = NULL, display_name = NULL, connection_status = NULL, connected_at = NULL WHERE user_id = $1 AND platform = $2', [userId, platform]);
   return res.status(200).json({ success: true, platform });
@@ -88,14 +98,14 @@ async function handleStatus(req: VercelRequest, res: VercelResponse, userId: str
   if (req.query.live === 'true' && process.env.COMPOSIO_API_KEY) {
     for (const platform of PLATFORMS) {
       try {
-        const response = await fetch(`${COMPOSIO_API_BASE}/connectedAccounts?user_uuid=${userId}&appNames=${platform}&status=ACTIVE&limit=1`,
+        const response = await fetch(`${COMPOSIO_API_BASE}/connected_accounts?user_id=${userId}&toolkit_slugs=${platform}&status=ACTIVE&limit=1`,
           { headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.COMPOSIO_API_KEY! } });
         if (response.ok) {
           const data = await response.json();
-          const accounts = data.items || data || [];
+          const accounts = data.items || [];
           if (accounts.length > 0) {
             const acct = accounts[0];
-            const live = { connected: true, connectedAccountId: acct.id || acct.connectedAccountId, handle: acct.connectionParams?.userName || undefined, displayName: acct.connectionParams?.displayName || undefined, connectionStatus: 'ACTIVE' };
+            const live = { connected: true, connectedAccountId: acct.id, handle: acct.connection_params?.userName || acct.connectionParams?.userName || undefined, displayName: acct.connection_params?.displayName || acct.connectionParams?.displayName || undefined, connectionStatus: 'ACTIVE' };
             result[platform] = { ...(result[platform] as object), ...live };
             await query(
               `INSERT INTO platform_connections (id, user_id, platform, connected, connected_account_id, handle, display_name, connection_status, connected_at, created_at)
@@ -104,7 +114,9 @@ async function handleStatus(req: VercelRequest, res: VercelResponse, userId: str
               [crypto.randomUUID(), userId, platform, live.connectedAccountId, live.handle || null, live.displayName || null, Date.now()]);
           }
         }
-      } catch { /* ignore */ }
+      } catch (e) {
+        console.error(`Status check failed for ${platform}:`, e);
+      }
     }
   }
   return res.status(200).json(result);
@@ -125,20 +137,22 @@ async function handleCallback(req: VercelRequest, res: VercelResponse) {
 
     if (connectedAccountId) {
       try {
-        const accountRes = await composioRequest(`/connectedAccounts/${connectedAccountId}`);
-        connectionStatus = accountRes.status || accountRes.connectionStatus || 'unknown';
-        accountHandle = accountRes.connectionParams?.userName || '';
-        accountDisplayName = accountRes.connectionParams?.displayName || '';
+        const accountRes = await composioRequest(`/connected_accounts/${connectedAccountId}`);
+        connectionStatus = accountRes.status || 'unknown';
+        accountHandle = accountRes.connection_params?.userName || accountRes.connectionParams?.userName || '';
+        accountDisplayName = accountRes.connection_params?.displayName || accountRes.connectionParams?.displayName || '';
       } catch { /* fallback below */ }
     }
     if (!connectedAccountId || connectionStatus === 'unknown') {
       try {
-        const accountsRes = await composioRequest(`/connectedAccounts?user_uuid=${userIdStr}&appNames=${platformStr}&status=ACTIVE`);
-        const accounts = accountsRes.items || accountsRes || [];
+        const accountsRes = await composioRequest(`/connected_accounts?user_id=${userIdStr}&toolkit_slugs=${platformStr}&status=ACTIVE`);
+        const accounts = accountsRes.items || [];
         if (accounts.length > 0) {
           const latest = accounts[accounts.length - 1];
-          connectedAccountId = latest.id || latest.connectedAccountId;
-          connectionStatus = 'ACTIVE'; accountHandle = latest.connectionParams?.userName || ''; accountDisplayName = latest.connectionParams?.displayName || '';
+          connectedAccountId = latest.id;
+          connectionStatus = 'ACTIVE'; 
+          accountHandle = latest.connection_params?.userName || latest.connectionParams?.userName || ''; 
+          accountDisplayName = latest.connection_params?.displayName || latest.connectionParams?.displayName || '';
         }
       } catch { /* ignore */ }
     }
