@@ -23,7 +23,6 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   connectWallet: () => Promise<void>;
-  loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => void;
   error: string | null;
   clearError: () => void;
@@ -97,18 +96,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const loginWithGoogle = useCallback(async (credential: string) => {
-    setError(null);
-    try {
-      const data = await authGoogleLogin(credential);
-      localStorage.setItem(TOKEN_KEY, data.token);
-      setUser(data.user);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Google login failed");
-      throw err;
-    }
-  }, []);
-
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     setUser(null);
@@ -123,7 +110,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         connectWallet,
-        loginWithGoogle,
         logout,
         error,
         clearError,

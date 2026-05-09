@@ -103,15 +103,6 @@ export async function authWalletLogin(address: string, signature: string, messag
   return response.json();
 }
 
-export async function authGoogleLogin(credential: string) {
-  const response = await fetch(`${API_BASE}/auth`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "google", credential }),
-  });
-  if (!response.ok) { const err = await response.json(); throw new Error(err.error || "Google login failed"); }
-  return response.json();
-}
 
 export async function authGetMe() {
   const response = await fetch(`${API_BASE}/auth`, { headers: getAuthHeaders() });

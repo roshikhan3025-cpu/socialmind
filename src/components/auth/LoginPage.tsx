@@ -2,7 +2,6 @@ import { useAuth } from "../../context/AuthContext";
 import { isMetaMaskInstalled } from "../../lib/metamask";
 import { FiAlertCircle, FiLoader } from "react-icons/fi";
 import { useEffect, useState } from "react";
-import { FcGoogle } from "react-icons/fc";
 
 function MetaMaskLogo() {
   return (
@@ -20,50 +19,9 @@ function MetaMaskLogo() {
 }
 
 export function LoginPage() {
-  const { connectWallet, loginWithGoogle, error, clearError, isLoading } = useAuth();
+  const { connectWallet, error, clearError, isLoading } = useAuth();
   const [connecting, setConnecting] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const hasMetaMask = isMetaMaskInstalled();
-
-  useEffect(() => {
-    // @ts-ignore
-    if (!window.google) {
-      const script = document.createElement("script");
-      script.src = "https://accounts.google.com/gsi/client";
-      script.async = true;
-      script.defer = true;
-      document.head.appendChild(script);
-      script.onload = () => {
-        initGoogle();
-      };
-    } else {
-      initGoogle();
-    }
-
-    function initGoogle() {
-      // @ts-ignore
-      window.google?.accounts.id.initialize({
-        client_id: "161519531242-0gnr8u7gmh25v92n06knvph438p46bs8.apps.googleusercontent.com",
-        callback: handleGoogleResponse,
-      });
-    }
-  }, []);
-
-  const handleGoogleResponse = async (response: any) => {
-    setGoogleLoading(true);
-    try {
-      await loginWithGoogle(response.credential);
-    } catch (err) {
-      console.error("Google login error:", err);
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
-  const handleGoogleClick = () => {
-    // @ts-ignore
-    window.google?.accounts.id.prompt();
-  };
 
   const handleConnect = async () => {
     clearError();
@@ -109,46 +67,33 @@ export function LoginPage() {
           </div>
         )}
 
-        <div className="auth-main-actions">
-          {!hasMetaMask ? (
-            <div className="auth-no-metamask">
-              <MetaMaskLogo />
-              <p>MetaMask is required for Web3 features</p>
-              <a
-                href="https://metamask.io/download/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="auth-install-btn"
-              >
-                Install MetaMask
-              </a>
-            </div>
-          ) : connecting ? (
-            <div className="auth-signing">
-              <FiLoader className="spin" size={28} />
-              <p>Confirm in MetaMask...</p>
-              <p className="auth-signing-hint">Sign the message to verify your wallet</p>
-            </div>
-          ) : (
+        {!hasMetaMask ? (
+          <div className="auth-no-metamask">
+            <MetaMaskLogo />
+            <p>MetaMask is required to use SocialMind</p>
+            <a
+              href="https://metamask.io/download/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="auth-install-btn"
+            >
+              Install MetaMask
+            </a>
+          </div>
+        ) : connecting ? (
+          <div className="auth-signing">
+            <FiLoader className="spin" size={28} />
+            <p>Confirm in MetaMask...</p>
+            <p className="auth-signing-hint">Sign the message to verify your wallet</p>
+          </div>
+        ) : (
+          <div className="auth-actions">
             <button className="auth-wallet-btn" onClick={handleConnect}>
               <MetaMaskLogo />
               <span>Connect with MetaMask</span>
             </button>
-          )}
-
-          <div className="auth-divider">
-            <span>OR</span>
           </div>
-
-          <button
-            className="auth-google-btn"
-            onClick={handleGoogleClick}
-            disabled={googleLoading}
-          >
-            {googleLoading ? <FiLoader className="spin" /> : <FcGoogle size={24} />}
-            <span>Sign in with Google</span>
-          </button>
-        </div>
+        )}
 
         <div className="auth-wallet-info">
           <p>Connect your MetaMask wallet on Base chain.</p>
