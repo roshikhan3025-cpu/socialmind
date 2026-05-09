@@ -6,6 +6,15 @@ export type Platform = 'twitter' | 'facebook' | 'instagram';
 
 export type AgentStatus = 'active' | 'paused' | 'setup';
 
+export type AIProvider = 'groq' | 'openrouter' | 'azure' | 'openai' | 'nvidia' | 'custom';
+
+export interface AISettings {
+  provider: AIProvider;
+  apiKey: string;
+  model: string;
+  baseUrl?: string;
+}
+
 export type ToneStyle =
   | 'professional'
   | 'casual'
@@ -104,6 +113,7 @@ export interface AgentConfig {
   schedule: PostingSchedule;
   rules: ContentRules;
   imageLibrary: ImageLibraryItem[];
+  aiSettings: AISettings;
   status: AgentStatus;
   createdAt: number;
   updatedAt: number;
@@ -202,6 +212,11 @@ export const DEFAULT_AGENT_CONFIG: Omit<AgentConfig, 'id' | 'userId' | 'createdA
   },
   rules: { ...DEFAULT_CONTENT_RULES },
   imageLibrary: [],
+  aiSettings: {
+    provider: 'openrouter',
+    apiKey: '',
+    model: 'anthropic/claude-3-sonnet',
+  },
   status: 'setup',
 };
 

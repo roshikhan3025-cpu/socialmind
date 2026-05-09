@@ -1,7 +1,8 @@
-import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { isMetaMaskInstalled } from "../../lib/metamask";
 import { FiAlertCircle, FiLoader } from "react-icons/fi";
+import { useEffect, useState } from "react";
+import { FcGoogle } from "react-icons/fc";
 
 function MetaMaskLogo() {
   return (
@@ -19,9 +20,50 @@ function MetaMaskLogo() {
 }
 
 export function LoginPage() {
-  const { connectWallet, error, clearError, isLoading } = useAuth();
+  const { connectWallet, loginWithGoogle, error, clearError, isLoading } = useAuth();
   const [connecting, setConnecting] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const hasMetaMask = isMetaMaskInstalled();
+
+  useEffect(() => {
+    // @ts-ignore
+    if (!window.google) {
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+      script.onload = () => {
+        initGoogle();
+      };
+    } else {
+      initGoogle();
+    }
+
+    function initGoogle() {
+      // @ts-ignore
+      window.google?.accounts.id.initialize({
+        client_id: "753907175249-shj6uom1f80h6392beveo8d6p66ndnca.apps.googleusercontent.com", // Fallback or placeholder, user should set via env
+        callback: handleGoogleResponse,
+      });
+    }
+  }, []);
+
+  const handleGoogleResponse = async (response: any) => {
+    setGoogleLoading(true);
+    try {
+      await loginWithGoogle(response.credential);
+    } catch (err) {
+      console.error("Google login error:", err);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleClick = () => {
+    // @ts-ignore
+    window.google?.accounts.id.prompt();
+  };
 
   const handleConnect = async () => {
     clearError();
@@ -87,10 +129,25 @@ export function LoginPage() {
             <p className="auth-signing-hint">Sign the message to verify your wallet</p>
           </div>
         ) : (
-          <button className="auth-wallet-btn" onClick={handleConnect}>
-            <MetaMaskLogo />
-            <span>Connect with MetaMask</span>
-          </button>
+          <div className="auth-actions">
+            <button className="auth-wallet-btn" onClick={handleConnect}>
+              <MetaMaskLogo />
+              <span>Connect with MetaMask</span>
+            </button>
+
+            <div className="auth-divider">
+              <span>OR</span>
+            </div>
+
+            <button
+              className="auth-google-btn"
+              onClick={handleGoogleClick}
+              disabled={googleLoading}
+            >
+              {googleLoading ? <FiLoader className="spin" /> : <FcGoogle size={24} />}
+              <span>Sign in with Google</span>
+            </button>
+          </div>
         )}
 
         <div className="auth-wallet-info">

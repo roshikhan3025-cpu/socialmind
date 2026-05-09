@@ -94,7 +94,9 @@ export function LandingPage({ onEnterApp }: Props) {
       <nav className="landing-nav">
         <div className="landing-nav-inner">
           <div className="landing-brand">
-            <span className="landing-logo">SM</span>
+            <div className="landing-logo-container">
+              <span className="landing-logo">SM</span>
+            </div>
             <span className="landing-brand-text">SocialMind</span>
           </div>
           <div className="landing-nav-links">
@@ -102,61 +104,71 @@ export function LandingPage({ onEnterApp }: Props) {
             <a href="#pricing">Pricing</a>
           </div>
           <button className="landing-cta-btn" onClick={onEnterApp}>
-            Connect Wallet <FiArrowRight />
+            Get Started <FiArrowRight />
           </button>
         </div>
       </nav>
 
       {/* Hero */}
       <section className="landing-hero">
+        <div className="hero-background-effects">
+          <div className="effect-blob blob-1" />
+          <div className="effect-blob blob-2" />
+        </div>
+        
         <Suspense fallback={<div className="scene3d-container" />}>
-          <Scene3D />
+          <div className="scene3d-wrapper">
+            <Scene3D />
+          </div>
         </Suspense>
+
         <div className="landing-hero-content">
-          <div className="landing-hero-badge">
-            <FiStar /> Web3 AI-Powered Social Media Agent on Base
-          </div>
-          <h1 className="landing-hero-title">
-            Your Social Media
-            <br />
-            <span className="landing-gradient-text">On Autopilot</span>
-          </h1>
-          <p className="landing-hero-desc">
-            Setup an AI agent with your brand's personality. It creates content,
-            picks the right time, and posts to Instagram, X, and Facebook — automatically.
-          </p>
-          <div className="landing-hero-actions">
-            <button className="landing-hero-btn primary" onClick={onEnterApp}>
-              Connect Wallet <FiArrowRight />
-            </button>
-            <a className="landing-hero-btn secondary" href="#features">
-              See How It Works
-            </a>
-          </div>
-          <div className="landing-hero-platforms">
-            <FaInstagram />
-            <FaXTwitter />
-            <FaFacebook />
-            <span>Built on Base chain</span>
+          <div className="hero-reveal-container">
+            <div className="landing-hero-badge">
+              <FiStar /> The Future of Autonomous Social Growth
+            </div>
+            <h1 className="landing-hero-title">
+              Your Digital Presence,
+              <br />
+              <span className="landing-gradient-text">Evolved</span>
+            </h1>
+            <p className="landing-hero-desc">
+              SocialMind is a sophisticated AI agent that autonomously crafts, 
+              optimizes, and publishes your social content 24/7.
+            </p>
+            <div className="landing-hero-actions">
+              <button className="landing-hero-btn primary" onClick={onEnterApp}>
+                Launch Agent <FiArrowRight />
+              </button>
+              <a className="landing-hero-btn secondary" href="#features">
+                Explore Features
+              </a>
+            </div>
+            <div className="landing-hero-platforms">
+              <div className="platform-tag"><FaInstagram /> Instagram</div>
+              <div className="platform-tag"><FaXTwitter /> Twitter</div>
+              <div className="platform-tag"><FaFacebook /> Facebook</div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Features */}
+      {/* Features - Minimalist Grid */}
       <section className="landing-features" id="features">
         <div className="landing-section-inner">
-          <h2 className="landing-section-title">
-            Everything You Need to
-            <br />
-            <span className="landing-gradient-text">Automate Social Media</span>
-          </h2>
-          <p className="landing-section-desc">
-            SocialMind combines advanced AI content generation with autonomous
-            scheduling to keep your social presence active 24/7.
-          </p>
+          <div className="section-header">
+            <h2 className="landing-section-title">
+              Engineered for <span className="landing-gradient-text">Excellence</span>
+            </h2>
+            <p className="landing-section-desc">
+              SocialMind uses state-of-the-art AI to handle everything from 
+              content strategy to engagement.
+            </p>
+          </div>
           <div className="landing-features-grid">
             {FEATURES.map((f) => (
               <div key={f.title} className="landing-feature-card">
+                <div className="feature-card-glass" />
                 <div className="landing-feature-icon">{f.icon}</div>
                 <h3>{f.title}</h3>
                 <p>{f.desc}</p>
@@ -166,41 +178,17 @@ export function LandingPage({ onEnterApp }: Props) {
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="landing-steps">
-        <div className="landing-section-inner">
-          <h2 className="landing-section-title">
-            Live in <span className="landing-gradient-text">3 Steps</span>
-          </h2>
-          <div className="landing-steps-grid">
-            <div className="landing-step">
-              <div className="landing-step-num">1</div>
-              <h3>Create Your Agent</h3>
-              <p>Define your brand's personality, tone, and topics through our guided wizard.</p>
-            </div>
-            <div className="landing-step">
-              <div className="landing-step-num">2</div>
-              <h3>Connect Platforms</h3>
-              <p>Link Instagram, X, and Facebook in one click via secure OAuth.</p>
-            </div>
-            <div className="landing-step">
-              <div className="landing-step-num">3</div>
-              <h3>Sit Back</h3>
-              <p>Your agent generates content and posts on schedule. You stay in control.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing */}
+      {/* Pricing - Sleek Cards */}
       <section className="landing-pricing" id="pricing">
         <div className="landing-section-inner">
-          <h2 className="landing-section-title">
-            Simple <span className="landing-gradient-text">Pricing</span>
-          </h2>
-          <p className="landing-section-desc">
-            Start free. Scale when you're ready.
-          </p>
+          <div className="section-header">
+            <h2 className="landing-section-title">
+              Unmatched <span className="landing-gradient-text">Value</span>
+            </h2>
+            <p className="landing-section-desc">
+              Choose the tier that fits your growth strategy.
+            </p>
+          </div>
           <div className="landing-pricing-grid">
             {PLANS.map((plan) => (
               <div
@@ -208,10 +196,12 @@ export function LandingPage({ onEnterApp }: Props) {
                 className={`landing-plan-card ${plan.highlighted ? "highlighted" : ""}`}
               >
                 {plan.highlighted && <div className="plan-badge">Most Popular</div>}
-                <h3 className="plan-name">{plan.name}</h3>
-                <div className="plan-price">
-                  <span className="plan-amount">{plan.price}</span>
-                  {plan.period && <span className="plan-period">{plan.period}</span>}
+                <div className="plan-header">
+                  <h3 className="plan-name">{plan.name}</h3>
+                  <div className="plan-price">
+                    <span className="plan-amount">{plan.price}</span>
+                    {plan.period && <span className="plan-period">{plan.period}</span>}
+                  </div>
                 </div>
                 <p className="plan-desc">{plan.description}</p>
                 <ul className="plan-features">
@@ -236,13 +226,22 @@ export function LandingPage({ onEnterApp }: Props) {
       {/* Footer */}
       <footer className="landing-footer">
         <div className="landing-footer-inner">
-          <div className="landing-footer-brand">
-            <span className="landing-logo small">SM</span>
-            <span>SocialMind</span>
+          <div className="landing-footer-main">
+            <div className="landing-footer-brand">
+              <span className="landing-logo small">SM</span>
+              <span>SocialMind</span>
+            </div>
+            <p className="landing-footer-copy">
+              Professional AI automation for the modern social landscape.
+            </p>
           </div>
-          <p className="landing-footer-copy">
-            Autonomous AI social media agents. Built for creators and businesses.
-          </p>
+          <div className="landing-footer-bottom">
+            <span>© 2024 SocialMind AI. All rights reserved.</span>
+            <div className="footer-links">
+              <a href="#">Privacy</a>
+              <a href="#">Terms</a>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

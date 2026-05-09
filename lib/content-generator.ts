@@ -5,7 +5,13 @@
 
 import type { AgentConfig, Platform, ContentMixType } from '../src/types/agent.js';
 
-const API_BASE = 'https://ai.api.4everland.org/api/v1';
+const PROVIDER_BASES: Record<string, string> = {
+  groq: 'https://api.groq.com/openai/v1',
+  openrouter: 'https://openrouter.ai/api/v1',
+  openai: 'https://api.openai.com/v1',
+  nvidia: 'https://integrate.api.nvidia.com/v1',
+  azure: '',
+};
 
 interface GeneratedContent {
   text: string;
@@ -90,21 +96,28 @@ export async function generateContent(
   platform: Platform,
   contentType: ContentMixType,
 ): Promise<GeneratedContent> {
-  const apiKey = process.env.FOUREVERLAND_API_KEY;
-  if (!apiKey) throw new Error('FOUREVERLAND_API_KEY not configured');
+  const aiSettings = agent.aiSettings;
+  let apiBase = PROVIDER_BASES[aiSettings?.provider || 'openrouter'] || aiSettings?.baseUrl || 'https://openrouter.ai/api/v1';
+  let apiKey = aiSettings?.apiKey || process.env.FOUREVERLAND_API_KEY;
+
+  if (aiSettings?.provider === 'azure') {
+    apiBase = aiSettings.baseUrl || '';
+  }
+
+  if (!apiKey) throw new Error('AI API key not configured. Please set it in Settings.');
 
   const maxLength = agent.rules.maxPostLength[platform];
   const systemPrompt = buildSystemPrompt(agent);
   const userPrompt = buildContentPrompt(platform, contentType, maxLength, agent);
 
-  const response = await fetch(`${API_BASE}/chat/completions`, {
+  const response = await fetch(`${apiBase}/chat/completions`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'anthropic/claude-sonnet-4',
+      model: aiSettings?.model || 'anthropic/claude-sonnet-4',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },

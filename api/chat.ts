@@ -2,17 +2,45 @@
 // SocialMind — AI Chat Proxy (hides 4everland API key)
 // ============================================================
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { queryOne } from '../lib/db.js';
+import { verifyToken } from './auth.js';
 
-const API_BASE = 'https://ai.api.4everland.org/api/v1';
+function getUserId(req: VercelRequest): string | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  return verifyToken(authHeader.slice(7))?.userId || null;
+}
+
+const PROVIDER_BASES: Record<string, string> = {
+  groq: 'https://api.groq.com/openai/v1',
+  openrouter: 'https://openrouter.ai/api/v1',
+  openai: 'https://api.openai.com/v1',
+  nvidia: 'https://integrate.api.nvidia.com/v1',
+  azure: '', // Dynamic
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const apiKey = process.env.FOUREVERLAND_API_KEY;
+  const userId = getUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+  // Fetch AI settings from agent config
+  const agentRow = await queryOne<{ config: any }>('SELECT config FROM agents WHERE user_id = $1', [userId]);
+  const agentConfig = agentRow?.config ? (typeof agentRow.config === 'string' ? JSON.parse(agentRow.config) : agentRow.config) : null;
+  const aiSettings = agentConfig?.aiSettings;
+
+  let apiBase = PROVIDER_BASES[aiSettings?.provider || 'openrouter'] || aiSettings?.baseUrl || 'https://openrouter.ai/api/v1';
+  let apiKey = aiSettings?.apiKey || process.env.FOUREVERLAND_API_KEY || process.env.OPENROUTER_API_KEY;
+
+  if (aiSettings?.provider === 'azure') {
+    apiBase = aiSettings.baseUrl || ''; // User must provide full endpoint
+  }
+
   if (!apiKey) {
-    return res.status(500).json({ error: 'Server API key not configured' });
+    return res.status(500).json({ error: 'AI API key not configured. Please set it in Settings.' });
   }
 
   try {
@@ -36,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       max_tokens: max_tokens ?? 4096,
     });
 
-    const response = await fetch(`${API_BASE}/chat/completions`, {
+    const response = await fetch(`${apiBase}/chat/completions`, {
       method: 'POST',
       headers,
       body,

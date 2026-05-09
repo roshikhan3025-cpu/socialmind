@@ -155,7 +155,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             agent.schedule?.[platform]?.contentMix || { original: 100, reply: 0, quote: 0, thread: 0 }
           );
           const content = await generateContent(agent, platform, contentType);
-          const postResult = await postToPlatform(content.text, platform, agent);
+          
+          let imageUrl: string | undefined;
+          if (platform === 'instagram' && agent.imageLibrary && agent.imageLibrary.length > 0) {
+            const randomImg = agent.imageLibrary[Math.floor(Math.random() * agent.imageLibrary.length)];
+            imageUrl = randomImg.url;
+          }
+
+          const postResult = await postToPlatform(content.text, platform, agent, imageUrl);
 
           await query(
             `INSERT INTO posts (id, user_id, agent_id, platform, content, post_type, post_url, external_post_id, status, error, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,

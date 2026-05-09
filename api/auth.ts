@@ -5,6 +5,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { query, queryOne } from '../lib/db.js';
 import crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export function generateToken(userId: string): string {
   const payload = { userId, exp: Date.now() + 7 * 24 * 60 * 60 * 1000, iat: Date.now() };
@@ -159,7 +162,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ token: generateToken(user.id), user: { ...user, walletAddress } });
     }
 
-    return res.status(400).json({ error: 'Invalid action. Use "nonce" or "wallet".' });
+    // ── Google sign-in ──
+    if (action === 'google') {
+      const { credential } = req.body;
+      if (!credential) return res.status(400).json({ error: 'Google credential (ID token) is required' });
+
+      try {
+        const ticket = await googleClient.verifyIdToken({
+          idToken: credential,
+          audience: process.env.GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        if (!payload || !payload.email) return res.status(401).json({ error: 'Invalid Google token' });
+
+        const email = payload.email.toLowerCase();
+        const name = payload.name || email.split('@')[0];
+        const image = payload.picture || '';
+
+        // Find or create user by email
+        let user = await queryOne<{ id: string; email: string; name: string; image: string; created_at: number }>(
+          'SELECT id, email, name, image, created_at FROM users WHERE email = $1', [email]
+        );
+
+        if (!user) {
+          const userId = crypto.randomUUID();
+          const now = Date.now();
+          await query(
+            'INSERT INTO users (id, email, name, image, auth_provider, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
+            [userId, email, name, image, 'google', now]
+          );
+          user = { id: userId, email, name, image, created_at: now };
+        } else {
+          // Update profile if changed
+          await query('UPDATE users SET name = $1, image = $2 WHERE id = $3', [name, image, user.id]);
+          user.name = name;
+          user.image = image;
+        }
+
+        return res.status(200).json({ token: generateToken(user.id), user });
+      } catch (err) {
+        console.error('Google verification error:', err);
+        return res.status(401).json({ error: 'Google authentication failed' });
+      }
+    }
+
+    return res.status(400).json({ error: 'Invalid action. Use "nonce", "wallet", or "google".' });
   } catch (error) {
     console.error('Auth error:', error);
     return res.status(500).json({ error: 'Internal server error' });

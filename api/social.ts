@@ -7,7 +7,7 @@ import { query, queryOne, queryAll } from '../lib/db.js';
 import { verifyToken } from './auth.js';
 import crypto from 'crypto';
 
-const COMPOSIO_API_BASE = 'https://backend.composio.dev/api/v1';
+const COMPOSIO_API_BASE = 'https://backend.composio.dev/api/v2';
 const PLATFORMS = ['twitter', 'facebook', 'instagram'] as const;
 const INTEGRATION_MAP: Record<string, string> = { twitter: 'twitter', facebook: 'facebook', instagram: 'instagram' };
 
