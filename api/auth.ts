@@ -170,7 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const ticket = await googleClient.verifyIdToken({
           idToken: credential,
-          audience: process.env.GOOGLE_CLIENT_ID,
+          audience: process.env.GOOGLE_CLIENT_ID || '161519531242-0gnr8u7gmh25v92n06knvph438p46bs8.apps.googleusercontent.com',
         });
         const payload = ticket.getPayload();
         if (!payload || !payload.email) return res.status(401).json({ error: 'Invalid Google token' });
