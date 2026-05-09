@@ -7,7 +7,7 @@ import { query, queryOne } from '../lib/db.js';
 import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || '161519531242-0gnr8u7gmh25v92n06knvph438p46bs8.apps.googleusercontent.com');
 
 export function generateToken(userId: string): string {
   const payload = { userId, exp: Date.now() + 7 * 24 * 60 * 60 * 1000, iat: Date.now() };

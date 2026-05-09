@@ -43,7 +43,7 @@ export function LoginPage() {
     function initGoogle() {
       // @ts-ignore
       window.google?.accounts.id.initialize({
-        client_id: "753907175249-shj6uom1f80h6392beveo8d6p66ndnca.apps.googleusercontent.com", // Fallback or placeholder, user should set via env
+        client_id: "161519531242-0gnr8u7gmh25v92n06knvph438p46bs8.apps.googleusercontent.com",
         callback: handleGoogleResponse,
       });
     }
