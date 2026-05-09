@@ -2,11 +2,9 @@ import {
   createContext,
   useContext,
   useState,
-  useEffect,
   useCallback,
   type ReactNode,
 } from "react";
-import { authGetMe } from "../utils/api";
 
 interface User {
   id: string;
@@ -27,16 +25,15 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
-const TOKEN_KEY = "socialmind-token";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>({
+  const [user] = useState<User | null>({
     id: "guest-user",
     email: "guest@socialmind.ai",
     name: "Guest Admin",
     createdAt: Date.now()
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loginWithSSO = useCallback(async () => {}, []);
