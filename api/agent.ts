@@ -10,10 +10,8 @@ import { postToPlatform } from '../lib/social-poster.js';
 import type { AgentConfig, Platform } from '../src/types/agent.js';
 import crypto from 'crypto';
 
-function getUserId(req: VercelRequest): string | null {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  return verifyToken(authHeader.slice(7))?.userId || null;
+function getUserId(_req: VercelRequest): string | null {
+  return 'guest-user';
 }
 
 // ── Config CRUD ──

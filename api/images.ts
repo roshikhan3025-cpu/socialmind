@@ -9,10 +9,8 @@ import { query, queryOne, queryAll } from '../lib/db.js';
 import { verifyToken } from './auth.js';
 import crypto from 'crypto';
 
-function getUserId(req: VercelRequest): string | null {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  return verifyToken(authHeader.slice(7))?.userId || null;
+function getUserId(_req: VercelRequest): string | null {
+  return 'guest-user';
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

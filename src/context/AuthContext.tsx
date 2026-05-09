@@ -30,39 +30,17 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const TOKEN_KEY = "socialmind-token";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>({
+    id: "guest-user",
+    email: "guest@socialmind.ai",
+    name: "Guest Admin",
+    createdAt: Date.now()
+  });
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Check for existing session
-  useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (token) {
-      authGetMe()
-        .then((data) => setUser(data.user))
-        .catch(() => localStorage.removeItem(TOKEN_KEY))
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const loginWithSSO = useCallback(async () => {
-    setError(null);
-    try {
-      // Redirect to your SSO provider (Vercel Auth, etc.)
-      window.location.href = "/api/auth?action=sso";
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "SSO login failed");
-    }
-  }, []);
-
-
-  const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    setUser(null);
-  }, []);
-
+  const loginWithSSO = useCallback(async () => {}, []);
+  const logout = useCallback(() => {}, []);
   const clearError = useCallback(() => setError(null), []);
 
   return (

@@ -26,26 +26,21 @@ export function verifyToken(token: string): { userId: string } | null {
   } catch { return null; }
 }
 
-export function getUserId(req: VercelRequest): string | null {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  return verifyToken(authHeader.slice(7))?.userId || null;
+export function getUserId(_req: VercelRequest): string | null {
+  return 'guest-user';
 }
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   // GET /api/auth = get current user
   if (req.method === 'GET') {
-    const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ error: 'No token provided' });
-    try {
-      const user = await queryOne<{ id: string; email: string; name: string; image: string; created_at: number }>(
-        'SELECT id, email, name, image, created_at FROM users WHERE id = $1', [userId]
-      );
-      if (!user) return res.status(404).json({ error: 'User not found' });
-      return res.status(200).json({ user });
-    } catch (error) {
-      console.error('Auth me error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
-    }
+    return res.status(200).json({ 
+      user: {
+        id: 'guest-user',
+        email: 'guest@socialmind.ai',
+        name: 'Guest Admin',
+        created_at: Date.now()
+      } 
+    });
   }
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
