@@ -115,6 +115,13 @@
   cursor: not-allowed;
 }
 
+.auth-main-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
 .auth-actions {
   display: flex;
   flex-direction: column;

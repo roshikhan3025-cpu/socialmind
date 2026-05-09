@@ -109,46 +109,46 @@ export function LoginPage() {
           </div>
         )}
 
-        {!hasMetaMask ? (
-          <div className="auth-no-metamask">
-            <MetaMaskLogo />
-            <p>MetaMask is required to use SocialMind</p>
-            <a
-              href="https://metamask.io/download/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="auth-install-btn"
-            >
-              Install MetaMask
-            </a>
-          </div>
-        ) : connecting ? (
-          <div className="auth-signing">
-            <FiLoader className="spin" size={28} />
-            <p>Confirm in MetaMask...</p>
-            <p className="auth-signing-hint">Sign the message to verify your wallet</p>
-          </div>
-        ) : (
-          <div className="auth-actions">
+        <div className="auth-main-actions">
+          {!hasMetaMask ? (
+            <div className="auth-no-metamask">
+              <MetaMaskLogo />
+              <p>MetaMask is required for Web3 features</p>
+              <a
+                href="https://metamask.io/download/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="auth-install-btn"
+              >
+                Install MetaMask
+              </a>
+            </div>
+          ) : connecting ? (
+            <div className="auth-signing">
+              <FiLoader className="spin" size={28} />
+              <p>Confirm in MetaMask...</p>
+              <p className="auth-signing-hint">Sign the message to verify your wallet</p>
+            </div>
+          ) : (
             <button className="auth-wallet-btn" onClick={handleConnect}>
               <MetaMaskLogo />
               <span>Connect with MetaMask</span>
             </button>
+          )}
 
-            <div className="auth-divider">
-              <span>OR</span>
-            </div>
-
-            <button
-              className="auth-google-btn"
-              onClick={handleGoogleClick}
-              disabled={googleLoading}
-            >
-              {googleLoading ? <FiLoader className="spin" /> : <FcGoogle size={24} />}
-              <span>Sign in with Google</span>
-            </button>
+          <div className="auth-divider">
+            <span>OR</span>
           </div>
-        )}
+
+          <button
+            className="auth-google-btn"
+            onClick={handleGoogleClick}
+            disabled={googleLoading}
+          >
+            {googleLoading ? <FiLoader className="spin" /> : <FcGoogle size={24} />}
+            <span>Sign in with Google</span>
+          </button>
+        </div>
 
         <div className="auth-wallet-info">
           <p>Connect your MetaMask wallet on Base chain.</p>
