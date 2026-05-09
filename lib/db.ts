@@ -9,9 +9,9 @@ let _sql: any = null;
 
 function getSql() {
   if (_sql) return _sql;
-  const databaseUrl = process.env.DATABASE_URL;
+  const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING;
   if (!databaseUrl) {
-    throw new Error('DATABASE_URL environment variable is not set');
+    throw new Error('Database connection string not found. Please ensure DATABASE_URL or POSTGRES_URL is set.');
   }
   _sql = neon(databaseUrl);
   return _sql;
