@@ -31,40 +31,7 @@ export function getUserId(req: VercelRequest): string | null {
   if (!authHeader?.startsWith('Bearer ')) return null;
   return verifyToken(authHeader.slice(7))?.userId || null;
 }
-
-/**
- * Verify an Ethereum signature (EIP-191 personal_sign).
- * Recovers the signer address from the message + signature.
- */
-function verifySignature(message: string, signature: string, expectedAddress: string): boolean {
-  try {
-    // Use Node.js crypto to verify EIP-191 personal_sign
-    // The message is prefixed with "\x19Ethereum Signed Message:\n" + length
-    const prefix = `\x19Ethereum Signed Message:\n${message.length}`;
-    const prefixedMsg = prefix + message;
-    const msgHash = crypto.createHash('sha3-256').update(prefixedMsg).digest();
-
-    // For proper ecrecover we need the viem library on the server
-    // But since we can't import ESM viem in Vercel's CJS serverless functions,
-    // we'll verify by checking the signature format and trusting the frontend's
-    // account connection (RainbowKit ensures the wallet is connected).
-    // The nonce prevents replay attacks.
-
-    // Basic validation: signature should be 65 bytes (130 hex chars + 0x prefix)
-    if (!signature || !signature.startsWith('0x') || signature.length !== 132) {
-      return false;
-    }
-
-    // The address is already verified by the wallet connection.
-    // The nonce prevents replay. This is secure for our use case.
-    void msgHash; // used for hash verification
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   // GET /api/auth = get current user
   if (req.method === 'GET') {
     const userId = getUserId(req);
@@ -86,80 +53,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { action } = req.body;
 
   try {
-    // ── Get nonce for SIWE ──
-    if (action === 'nonce') {
-      const nonce = crypto.randomBytes(32).toString('hex');
-      // Store nonce temporarily (expires in 5 min)
-      await query(
-        `CREATE TABLE IF NOT EXISTS auth_nonces (
-          nonce TEXT PRIMARY KEY,
-          created_at BIGINT NOT NULL
-        )`
-      );
-      // Clean old nonces
-      await query('DELETE FROM auth_nonces WHERE created_at < $1', [Date.now() - 5 * 60 * 1000]);
-      await query('INSERT INTO auth_nonces (nonce, created_at) VALUES ($1, $2)', [nonce, Date.now()]);
-      return res.status(200).json({ nonce });
+    // ── SSO sign-in (Placeholder for Vercel/External SSO) ──
+    if (action === 'sso') {
+      // Since you'll implement the SSO logic, this endpoint provides the placeholder hook.
+      return res.status(200).json({ message: 'SSO provider redirect hook' });
     }
 
-    // ── Wallet sign-in (SIWE) ──
-    if (action === 'wallet') {
-      const { address, signature, message, nonce } = req.body;
-
-      if (!address || !signature || !message || !nonce) {
-        return res.status(400).json({ error: 'address, signature, message, and nonce are required' });
-      }
-
-      // Verify nonce exists and is not expired
-      const nonceRow = await queryOne<{ nonce: string; created_at: number }>(
-        'SELECT nonce, created_at FROM auth_nonces WHERE nonce = $1', [nonce]
-      );
-      if (!nonceRow) {
-        return res.status(401).json({ error: 'Invalid or expired nonce. Please try again.' });
-      }
-      if (Date.now() - Number(nonceRow.created_at) > 5 * 60 * 1000) {
-        await query('DELETE FROM auth_nonces WHERE nonce = $1', [nonce]);
-        return res.status(401).json({ error: 'Nonce expired. Please try again.' });
-      }
-
-      // Consume the nonce (one-time use)
-      await query('DELETE FROM auth_nonces WHERE nonce = $1', [nonce]);
-
-      // Verify the message contains the nonce (prevents tampering)
-      if (!message.includes(nonce)) {
-        return res.status(401).json({ error: 'Message does not contain the expected nonce' });
-      }
-
-      // Verify signature format
-      const walletAddress = address.toLowerCase();
-      if (!verifySignature(message, signature, walletAddress)) {
-        return res.status(401).json({ error: 'Invalid wallet signature' });
-      }
-
-      // Find or create user by wallet address
-      // Ensure the wallet_address column exists
-      await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_address TEXT UNIQUE`).catch(() => {});
-
-      let user = await queryOne<{ id: string; email: string; name: string; image: string; created_at: number }>(
-        'SELECT id, email, name, image, created_at FROM users WHERE wallet_address = $1', [walletAddress]
-      );
-
-      if (!user) {
-        // Create new user with wallet address
-        const userId = crypto.randomUUID();
-        const now = Date.now();
-        const shortAddr = `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
-        await query(
-          'INSERT INTO users (id, email, name, image, wallet_address, auth_provider, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-          [userId, `${walletAddress}@wallet`, shortAddr, '', walletAddress, 'wallet', now]
-        );
-        user = { id: userId, email: `${walletAddress}@wallet`, name: shortAddr, image: '', created_at: now };
-      }
-
-      return res.status(200).json({ token: generateToken(user.id), user: { ...user, walletAddress } });
-    }
-
-    return res.status(400).json({ error: 'Invalid action. Use "nonce" or "wallet".' });
+    return res.status(400).json({ error: 'Invalid action. Use "sso".' });
   } catch (error) {
     console.error('Auth error:', error);
     return res.status(500).json({ error: 'Internal server error' });

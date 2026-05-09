@@ -19,19 +19,18 @@ function MetaMaskLogo() {
 }
 
 export function LoginPage() {
-  const { connectWallet, error, clearError, isLoading } = useAuth();
-  const [connecting, setConnecting] = useState(false);
-  const hasMetaMask = isMetaMaskInstalled();
+  const { loginWithSSO, error, clearError, isLoading } = useAuth() as any;
+  const [ssoLoading, setSsoLoading] = useState(false);
 
-  const handleConnect = async () => {
-    clearError();
-    setConnecting(true);
+  const handleSSOClick = async () => {
+    setSsoLoading(true);
     try {
-      await connectWallet();
-    } catch {
-      // error handled in context
+      // This will trigger your SSO flow (e.g. redirect to Vercel Auth or Google)
+      await loginWithSSO();
+    } catch (err) {
+      console.error("SSO login error:", err);
     } finally {
-      setConnecting(false);
+      setSsoLoading(false);
     }
   };
 
@@ -54,10 +53,6 @@ export function LoginPage() {
           </div>
           <h1 className="auth-title">SocialMind</h1>
           <p className="auth-subtitle">Autonomous AI Social Media Agent</p>
-          <p className="auth-chain-badge">
-            <span className="chain-dot" />
-            Base Chain
-          </p>
         </div>
 
         {error && (
@@ -67,33 +62,20 @@ export function LoginPage() {
           </div>
         )}
 
-        {!hasMetaMask ? (
-          <div className="auth-no-metamask">
-            <MetaMaskLogo />
-            <p>MetaMask is required to use SocialMind</p>
-            <a
-              href="https://metamask.io/download/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="auth-install-btn"
-            >
-              Install MetaMask
-            </a>
-          </div>
-        ) : connecting ? (
-          <div className="auth-signing">
-            <FiLoader className="spin" size={28} />
-            <p>Confirm in MetaMask...</p>
-            <p className="auth-signing-hint">Sign the message to verify your wallet</p>
-          </div>
-        ) : (
-          <div className="auth-actions">
-            <button className="auth-wallet-btn" onClick={handleConnect}>
-              <MetaMaskLogo />
-              <span>Connect with MetaMask</span>
-            </button>
-          </div>
-        )}
+        <div className="auth-actions">
+          <button
+            className="auth-sso-btn"
+            onClick={handleSSOClick}
+            disabled={ssoLoading}
+          >
+            {ssoLoading ? <FiLoader className="spin" /> : <div className="sso-icon" />}
+            <span>Sign in with SSO</span>
+          </button>
+        </div>
+
+        <div className="auth-wallet-info">
+          <p>Secure login powered by your organization's SSO.</p>
+        </div>
 
         <div className="auth-wallet-info">
           <p>Connect your MetaMask wallet on Base chain.</p>

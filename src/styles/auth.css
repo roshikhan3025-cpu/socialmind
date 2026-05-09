@@ -87,12 +87,12 @@
   box-shadow: 0 0 6px rgba(56, 97, 251, 0.5);
 }
 
-/* Connect Wallet Button */
-.auth-wallet-btn {
+/* SSO Button */
+.auth-sso-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
   padding: 16px;
   background: linear-gradient(135deg, var(--accent), var(--accent-dim));
@@ -100,138 +100,35 @@
   border: none;
   border-radius: var(--radius-md);
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   font-family: var(--font-body);
   cursor: pointer;
   transition: all var(--duration-fast);
   box-shadow: var(--shadow-neon);
 }
-.auth-wallet-btn:hover:not(:disabled) {
+
+.auth-sso-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: var(--shadow-glow);
 }
-.auth-wallet-btn:disabled {
-  opacity: 0.6;
+
+.auth-sso-btn:disabled {
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
-.auth-main-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  width: 100%;
+.sso-icon {
+  width: 20px;
+  height: 20px;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4'%3E%3C/path%3E%3Cpolyline points='10 17 15 12 10 7'%3E%3C/polyline%3E%3Cline x1='15' y1='12' x2='3' y2='12'%3E%3C/line%3E%3C/svg%3E") no-repeat center;
 }
 
 .auth-actions {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.auth-google-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
   width: 100%;
-  padding: 16px;
-  background: white;
-  color: #1f1f1f;
-  border: 1px solid #ddd;
-  border-radius: var(--radius-md);
-  font-size: 1rem;
-  font-weight: 600;
-  font-family: var(--font-body);
-  cursor: pointer;
-  transition: all var(--duration-fast);
-}
-.auth-google-btn:hover:not(:disabled) {
-  background: #f8f8f8;
-  border-color: #ccc;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-.auth-google-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.auth-signing {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 28px;
-  color: var(--text-muted);
-  font-size: 0.9375rem;
-}
-.auth-signing-hint {
-  font-size: 0.75rem;
-  color: var(--text-subtle);
-}
-
-.auth-no-metamask {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  padding: 24px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-.auth-install-btn {
-  display: inline-flex;
-  align-items: center;
-  padding: 10px 24px;
-  background: linear-gradient(135deg, #e2761b, #cd6116);
-  color: white;
-  border-radius: var(--radius-md);
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all var(--duration-fast);
-}
-.auth-install-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(226, 118, 27, 0.3);
-  text-decoration: none;
-  color: white;
-}
-
-.auth-wallet-info {
-  text-align: center;
-  margin-top: 20px;
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  line-height: 1.6;
-}
-
-.auth-wallets-supported {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-  font-size: 0.6875rem;
-  color: var(--text-subtle);
-}
-.wallet-logos {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-}
-.wallet-tag {
-  padding: 3px 10px;
-  background: var(--glass);
-  backdrop-filter: blur(4px);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  font-size: 0.625rem;
-  color: var(--text-muted);
 }
 
 .auth-divider {
