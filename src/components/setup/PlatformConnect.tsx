@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { FiCheck, FiLink, FiLoader, FiRefreshCw, FiXCircle } from "react-icons/fi";
-import { FaXTwitter, FaFacebook, FaInstagram } from "react-icons/fa6";
-import type { PlatformConnections, Platform } from "../../types/agent";
+import { FaXTwitter, FaFacebook, FaInstagram, FaLinkedin, FaTiktok, FaYoutube, FaBluesky, FaDiscord } from "react-icons/fa6";
+import { FiMessageCircle } from "react-icons/fi";
+import type { PlatformConnections } from "../../types/agent";
+import type { Platform } from "../../types/platform";
+import { ALL_PLATFORMS, PLATFORM_LABELS } from "../../types/platform";
 import {
   connectPlatform,
   disconnectPlatform,
@@ -14,39 +17,51 @@ interface Props {
   onChange: (platforms: PlatformConnections) => void;
 }
 
-const PLATFORM_INFO: Record<
-  Platform,
-  {
-    name: string;
-    icon: React.ReactNode;
-    color: string;
-    description: string;
-    note: string;
-  }
-> = {
+const PLATFORM_INFO: Record<Platform, { icon: React.ReactNode; color: string; description: string }> = {
   twitter: {
-    name: "X (Twitter)",
     icon: <FaXTwitter />,
     color: "#ffffff",
-    description:
-      "Post tweets, replies, and threads automatically to your X account.",
-    note: "Requires Twitter Developer API credentials configured in your Composio dashboard.",
+    description: "Post tweets and threads automatically to your X account.",
   },
   facebook: {
-    name: "Facebook Page",
     icon: <FaFacebook />,
     color: "#1877F2",
-    description:
-      "Auto-post to your Facebook Page. Requires admin access to the Page.",
-    note: "Uses Composio managed OAuth. Personal profiles are not supported — Pages only.",
+    description: "Auto-post to your Facebook Page. Requires admin access.",
   },
   instagram: {
-    name: "Instagram",
     icon: <FaInstagram />,
     color: "#E4405F",
-    description:
-      "Post to your Instagram Business or Creator account.",
-    note: "Uses Composio managed OAuth. Personal accounts are not supported. Image posts require an image URL.",
+    description: "Post to your Instagram Business or Creator account.",
+  },
+  linkedin: {
+    icon: <FaLinkedin />,
+    color: "#0A66C2",
+    description: "Share content to your LinkedIn profile feed.",
+  },
+  tiktok: {
+    icon: <FaTiktok />,
+    color: "#ffffff",
+    description: "Upload videos to your TikTok account.",
+  },
+  youtube: {
+    icon: <FaYoutube />,
+    color: "#FF0000",
+    description: "Publish videos to your YouTube channel.",
+  },
+  bluesky: {
+    icon: <FaBluesky />,
+    color: "#0285FF",
+    description: "Post to your Bluesky social feed.",
+  },
+  discord: {
+    icon: <FaDiscord />,
+    color: "#5865F2",
+    description: "Post messages to your Discord server.",
+  },
+  threads: {
+    icon: <FiMessageCircle />,
+    color: "#ffffff",
+    description: "Post threads to your Threads profile.",
   },
 };
 
@@ -56,10 +71,8 @@ export function PlatformConnect({ platforms, onChange }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // On mount, refresh status from Composio
   useEffect(() => {
     refreshStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const refreshStatus = useCallback(async () => {
@@ -67,14 +80,13 @@ export function PlatformConnect({ platforms, onChange }: Props) {
     try {
       const status = await getSocialStatus(true);
       const updated = { ...platforms };
-      for (const p of ["twitter", "facebook", "instagram"] as Platform[]) {
+      for (const p of ALL_PLATFORMS) {
         if (status[p]) {
           updated[p] = { ...updated[p], ...status[p] };
         }
       }
       onChange(updated);
     } catch {
-      // Silently fail — user can retry
     } finally {
       setRefreshing(false);
     }
@@ -88,31 +100,26 @@ export function PlatformConnect({ platforms, onChange }: Props) {
       const result = await connectPlatform(platform);
 
       if (result.authUrl) {
-        // Open Composio OAuth Connect Link in a popup
         const popup = window.open(
           result.authUrl,
-          `composio-${platform}-auth`,
+          `oauth-${platform}-auth`,
           "width=620,height=720,scrollbars=yes"
         );
 
-        // Store the pending connection ID
         onChange({
           ...platforms,
           [platform]: {
             ...platforms[platform],
             connected: false,
-            connectedAccountId: result.connectionId,
           },
         });
 
         setConnecting(null);
         setPolling(platform);
 
-        // Poll for connection completion
         const connected = await pollConnectionStatus(platform, 3000, 60);
 
         if (connected) {
-          // Refresh to get the final handle/display name
           const status = await getSocialStatus(true);
           if (status[platform]) {
             onChange({
@@ -126,21 +133,20 @@ export function PlatformConnect({ platforms, onChange }: Props) {
             });
           }
         } else {
-          // Check if popup was closed early
           if (popup && popup.closed) {
             setError(
-              `${PLATFORM_INFO[platform].name} authorization was cancelled or timed out. Please try again.`
+              `${PLATFORM_LABELS[platform]} authorization was cancelled or timed out. Please try again.`
             );
           } else {
             setError(
-              `Timed out waiting for ${PLATFORM_INFO[platform].name} connection. If you completed authorization, click "Refresh Status".`
+              `Timed out waiting for ${PLATFORM_LABELS[platform]} connection. If you completed authorization, click "Refresh Status".`
             );
           }
         }
 
         setPolling(null);
       } else {
-        throw new Error("No authorization URL returned from Composio");
+        throw new Error("No authorization URL returned from server");
       }
     } catch (err) {
       setError(
@@ -172,10 +178,9 @@ export function PlatformConnect({ platforms, onChange }: Props) {
     <div className="wizard-form">
       <div className="form-section">
         <p className="form-section-desc">
-          Connect your social media accounts through Composio to enable
-          autonomous posting. All OAuth authorization and API access is handled
-          securely by Composio — your credentials are never stored on our
-          servers.
+          Connect your social media accounts using official OAuth authorization.
+          You will be redirected to each platform to grant permissions.
+          Tokens are stored securely and used only for posting on your behalf.
         </p>
 
         {error && (
@@ -185,7 +190,6 @@ export function PlatformConnect({ platforms, onChange }: Props) {
           </div>
         )}
 
-        {/* Refresh button */}
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button
             className="btn btn-secondary btn-sm"
@@ -199,12 +203,8 @@ export function PlatformConnect({ platforms, onChange }: Props) {
         </div>
 
         <div className="platform-connect-list">
-          {(
-            Object.entries(PLATFORM_INFO) as [
-              Platform,
-              (typeof PLATFORM_INFO)[Platform]
-            ][]
-          ).map(([platform, info]) => {
+          {(ALL_PLATFORMS as Platform[]).map((platform) => {
+            const info = PLATFORM_INFO[platform];
             const connection = platforms[platform];
             const isConnecting = connecting === platform;
             const isPolling = polling === platform;
@@ -224,7 +224,7 @@ export function PlatformConnect({ platforms, onChange }: Props) {
                     {info.icon}
                   </div>
                   <div className="platform-connect-info">
-                    <h3>{info.name}</h3>
+                    <h3>{PLATFORM_LABELS[platform]}</h3>
                     <p>{info.description}</p>
                   </div>
                 </div>
@@ -233,7 +233,7 @@ export function PlatformConnect({ platforms, onChange }: Props) {
                   {connection.connected ? (
                     <div className="connected-status">
                       <span className="status-badge status-connected">
-                        <FiCheck /> Connected via Composio
+                        <FiCheck /> Connected
                       </span>
                       {connection.handle && (
                         <span className="connected-handle">
@@ -263,25 +263,20 @@ export function PlatformConnect({ platforms, onChange }: Props) {
                       >
                         {isConnecting ? (
                           <>
-                            <FiLoader className="spin" /> Opening Composio...
+                            <FiLoader className="spin" /> Opening authorization...
                           </>
                         ) : isPolling ? (
                           <>
-                            <FiLoader className="spin" /> Waiting for
-                            authorization...
+                            <FiLoader className="spin" /> Waiting for authorization...
                           </>
                         ) : (
                           <>
-                            <FiLink /> Connect with Composio
+                            <FiLink /> Connect
                           </>
                         )}
                       </button>
                     </div>
                   )}
-                </div>
-
-                <div className="platform-connect-note">
-                  <p>{info.note}</p>
                 </div>
               </div>
             );
@@ -290,13 +285,10 @@ export function PlatformConnect({ platforms, onChange }: Props) {
 
         <div className="platform-connect-note" style={{ marginTop: 16 }}>
           <p>
-            <strong>How it works:</strong> Clicking "Connect with Composio" opens a secure
-            authorization page. Sign in to your social account and grant permissions.
+            <strong>How it works:</strong> Click "Connect" to open the
+            platform's official authorization page. Sign in and grant permissions.
             Once complete, SocialMind will detect the connection automatically.
-            All platform integrations are managed exclusively through{" "}
-            <a href="https://composio.dev" target="_blank" rel="noopener noreferrer">
-              Composio
-            </a>.
+            Your access tokens are stored securely and never shared.
           </p>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FiZap, FiEdit3, FiRefreshCw, FiDownload, FiLoader } from "react-icons/fi";
-import { FaXTwitter, FaFacebook, FaInstagram } from "react-icons/fa6";
+import { FaXTwitter, FaFacebook, FaInstagram, FaLinkedin, FaTiktok, FaYoutube, FaBluesky, FaDiscord } from "react-icons/fa6";
+import { FiMessageCircle } from "react-icons/fi";
 import type { AgentConfig } from "../../types/agent";
 import { postNow } from "../../utils/api";
 
@@ -8,6 +9,18 @@ interface Props {
   agent: AgentConfig | null;
   onEditAgent: () => void;
 }
+
+const PLATFORM_BUTTONS = [
+  { key: "instagram", label: "Post to Instagram", icon: <FaInstagram /> },
+  { key: "twitter", label: "Post to X", icon: <FaXTwitter /> },
+  { key: "facebook", label: "Post to Facebook", icon: <FaFacebook /> },
+  { key: "linkedin", label: "Post to LinkedIn", icon: <FaLinkedin /> },
+  { key: "tiktok", label: "Post to TikTok", icon: <FaTiktok /> },
+  { key: "youtube", label: "Post to YouTube", icon: <FaYoutube /> },
+  { key: "bluesky", label: "Post to Bluesky", icon: <FaBluesky /> },
+  { key: "discord", label: "Post to Discord", icon: <FaDiscord /> },
+  { key: "threads", label: "Post to Threads", icon: <FiMessageCircle /> },
+];
 
 export function QuickActions({ agent, onEditAgent }: Props) {
   const [posting, setPosting] = useState<string | null>(null);
@@ -51,41 +64,20 @@ export function QuickActions({ agent, onEditAgent }: Props) {
           </div>
         </button>
 
-        <button
-          className="quick-action-btn"
-          onClick={() => handlePostNow("instagram")}
-          disabled={!!posting}
-        >
-          {posting === "instagram" ? <FiLoader className="spin" /> : <FaInstagram />}
-          <div className="quick-action-info">
-            <span className="quick-action-label">Post to Instagram</span>
-            <span className="quick-action-desc">Generate and post to Instagram now</span>
-          </div>
-        </button>
-
-        <button
-          className="quick-action-btn"
-          onClick={() => handlePostNow("twitter")}
-          disabled={!!posting}
-        >
-          {posting === "twitter" ? <FiLoader className="spin" /> : <FaXTwitter />}
-          <div className="quick-action-info">
-            <span className="quick-action-label">Post to X</span>
-            <span className="quick-action-desc">Generate and post to X (Twitter) now</span>
-          </div>
-        </button>
-
-        <button
-          className="quick-action-btn"
-          onClick={() => handlePostNow("facebook")}
-          disabled={!!posting}
-        >
-          {posting === "facebook" ? <FiLoader className="spin" /> : <FaFacebook />}
-          <div className="quick-action-info">
-            <span className="quick-action-label">Post to Facebook</span>
-            <span className="quick-action-desc">Generate and post to Facebook now</span>
-          </div>
-        </button>
+        {PLATFORM_BUTTONS.map(({ key, label, icon }) => (
+          <button
+            key={key}
+            className="quick-action-btn"
+            onClick={() => handlePostNow(key)}
+            disabled={!!posting}
+          >
+            {posting === key ? <FiLoader className="spin" /> : icon}
+            <div className="quick-action-info">
+              <span className="quick-action-label">{label}</span>
+              <span className="quick-action-desc">Generate and post now</span>
+            </div>
+          </button>
+        ))}
 
         <button className="quick-action-btn" onClick={onEditAgent}>
           <FiEdit3 />

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { FiPlus, FiX } from "react-icons/fi";
 import type { ContentRules as ContentRulesType } from "../../types/agent";
+import type { Platform } from "../../types/platform";
+import { ALL_PLATFORMS, PLATFORM_LABELS } from "../../types/platform";
 
 interface Props {
   rules: ContentRulesType;
@@ -177,13 +179,13 @@ export function ContentRules({ rules, onChange }: Props) {
         <div className="form-group">
           <label className="form-label">Max Post Length (characters)</label>
           <div className="length-grid">
-            {(["twitter", "facebook", "instagram"] as const).map((platform) => (
+            {ALL_PLATFORMS.map((platform) => (
               <div key={platform} className="length-item">
-                <label>{platform === "twitter" ? "X" : platform.charAt(0).toUpperCase() + platform.slice(1)}</label>
+                <label>{PLATFORM_LABELS[platform]}</label>
                 <input
                   type="number"
                   className="form-input"
-                  value={rules.maxPostLength[platform]}
+                  value={rules.maxPostLength[platform] || 280}
                   onChange={(e) => {
                     const val = parseInt(e.target.value);
                     update("maxPostLength", {

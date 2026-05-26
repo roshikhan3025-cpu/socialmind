@@ -1,6 +1,9 @@
 import { FiPlay, FiPause, FiEdit3 } from "react-icons/fi";
-import { FaXTwitter, FaFacebook, FaInstagram } from "react-icons/fa6";
-import type { AgentConfig, Platform } from "../../types/agent";
+import { FaXTwitter, FaFacebook, FaInstagram, FaLinkedin, FaTiktok, FaYoutube, FaBluesky, FaDiscord } from "react-icons/fa6";
+import { FiMessageCircle } from "react-icons/fi";
+import type { AgentConfig } from "../../types/agent";
+import type { Platform } from "../../types/platform";
+import { ALL_PLATFORMS, PLATFORM_LABELS } from "../../types/platform";
 
 interface Props {
   agent: AgentConfig;
@@ -8,12 +11,16 @@ interface Props {
   onEdit: () => void;
 }
 
-const platformIcon = (p: Platform) => {
-  switch (p) {
-    case "twitter": return <FaXTwitter />;
-    case "facebook": return <FaFacebook />;
-    case "instagram": return <FaInstagram />;
-  }
+const PLATFORM_ICONS: Record<Platform, React.ReactNode> = {
+  twitter: <FaXTwitter />,
+  facebook: <FaFacebook />,
+  instagram: <FaInstagram />,
+  linkedin: <FaLinkedin />,
+  tiktok: <FaTiktok />,
+  youtube: <FaYoutube />,
+  bluesky: <FaBluesky />,
+  discord: <FaDiscord />,
+  threads: <FiMessageCircle />,
 };
 
 export function AgentStatus({ agent, onToggleStatus, onEdit }: Props) {
@@ -43,13 +50,13 @@ export function AgentStatus({ agent, onToggleStatus, onEdit }: Props) {
       </div>
 
       <div className="agent-platforms-status">
-        {(["twitter", "facebook", "instagram"] as Platform[]).map((p) => {
+        {ALL_PLATFORMS.map((p) => {
           const connected = agent.platforms?.[p]?.connected;
           const scheduled = agent.schedule?.[p]?.enabled;
           const postsPerDay = agent.schedule?.[p]?.postsPerDay || 0;
           return (
             <div key={p} className={`platform-status-item ${connected ? "connected" : ""}`}>
-              <span className="platform-icon">{platformIcon(p)}</span>
+              <span className="platform-icon">{PLATFORM_ICONS[p]}</span>
               <span className={`platform-badge ${connected && scheduled ? "active" : connected ? "idle" : "off"}`}>
                 {connected && scheduled ? `${postsPerDay}/day` : connected ? "Idle" : "Off"}
               </span>

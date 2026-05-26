@@ -1,17 +1,23 @@
 import { FiExternalLink, FiCheck, FiX, FiClock } from "react-icons/fi";
-import { FaXTwitter, FaFacebook, FaInstagram } from "react-icons/fa6";
-import type { PostLog, Platform } from "../../types/agent";
+import { FaXTwitter, FaFacebook, FaInstagram, FaLinkedin, FaTiktok, FaYoutube, FaBluesky, FaDiscord } from "react-icons/fa6";
+import { FiMessageCircle } from "react-icons/fi";
+import type { PostLog } from "../../types/agent";
+import type { Platform } from "../../types/platform";
 
 interface Props {
   posts: PostLog[];
 }
 
-const platformIcon = (p: Platform) => {
-  switch (p) {
-    case "twitter": return <FaXTwitter />;
-    case "facebook": return <FaFacebook />;
-    case "instagram": return <FaInstagram />;
-  }
+const PLATFORM_ICONS: Record<Platform, React.ReactNode> = {
+  twitter: <FaXTwitter />,
+  facebook: <FaFacebook />,
+  instagram: <FaInstagram />,
+  linkedin: <FaLinkedin />,
+  tiktok: <FaTiktok />,
+  youtube: <FaYoutube />,
+  bluesky: <FaBluesky />,
+  discord: <FaDiscord />,
+  threads: <FiMessageCircle />,
 };
 
 const statusIcon = (status: PostLog["status"]) => {
@@ -53,7 +59,7 @@ export function ActivityFeed({ posts }: Props) {
             <div key={post.id} className={`activity-item status-${post.status}`}>
               <div className="activity-item-header">
                 <div className="activity-meta">
-                  <span className="activity-platform">{platformIcon(post.platform)}</span>
+                  <span className="activity-platform">{PLATFORM_ICONS[post.platform]}</span>
                   {statusIcon(post.status)}
                   <span className="activity-type">{post.postType}</span>
                   <span className="activity-time">{formatTimeAgo(post.createdAt)}</span>

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { triggerAutoPost, getPostHistory } from "../utils/api";
-import type { AgentConfig, PostLog, Platform } from "../types/agent";
+import type { AgentConfig, PostLog } from "../types/agent";
+import type { Platform } from "../types/platform";
+import { ALL_PLATFORMS } from "../types/platform";
 
 interface AutoPostState {
   isRunning: boolean;
@@ -23,7 +25,7 @@ interface AutoPostState {
  * The backend handles:
  * - Which platforms to post to based on schedule
  * - Anti-duplicate logic (won't re-post within minInterval)
- * - Content generation + Composio posting
+ * - Content generation + direct API posting
  *
  * This hook just pings the cron endpoint on an interval.
  */
@@ -49,12 +51,12 @@ export function useAutoPost(
 
     let hasEnabledPlatform = false;
 
-    for (const platform of ["twitter", "facebook", "instagram"] as Platform[]) {
+    for (const platform of ALL_PLATFORMS) {
       const sched = agent.schedule?.[platform];
       if (sched?.enabled) hasEnabledPlatform = true;
     }
 
-    if (!hasEnabledPlatform) return 10 * 60 * 1000; // 10 min if nothing enabled
+    if (!hasEnabledPlatform) return 10 * 60 * 1000;
 
     // Check every 5 minutes — the backend handles anti-duplicate logic
     // so frequent checks are safe and ensure timely posting
@@ -67,7 +69,7 @@ export function useAutoPost(
 
     let minGapMs = 24 * 60 * 60 * 1000; // start at 24h
 
-    for (const platform of ["twitter", "facebook", "instagram"] as Platform[]) {
+    for (const platform of ALL_PLATFORMS) {
       const sched = agent.schedule?.[platform];
       if (!sched?.enabled) continue;
 

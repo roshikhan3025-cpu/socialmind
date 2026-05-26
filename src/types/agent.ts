@@ -1,8 +1,6 @@
-// ============================================================
-// SocialMind — Agent Configuration Types
-// ============================================================
+import type { Platform } from './platform';
 
-export type Platform = 'twitter' | 'facebook' | 'instagram';
+export type { Platform };
 
 export type AgentStatus = 'active' | 'paused' | 'setup';
 
@@ -28,46 +26,40 @@ export type ContentMixType = 'original' | 'reply' | 'quote' | 'thread';
 
 export interface AgentIdentity {
   name: string;
-  avatar: string; // URL or base64
+  avatar: string;
   bio: string;
   tagline: string;
 }
 
 export interface PersonalityConfig {
   tone: ToneStyle;
-  writingStyle: string; // freeform description
-  topics: string[]; // areas of expertise
-  examplePosts: string[]; // sample posts for style reference
-  systemPrompt: string; // generated from personality config
-  doNotMention: string[]; // forbidden topics
-  languages: string[]; // e.g., ['en']
+  writingStyle: string;
+  topics: string[];
+  examplePosts: string[];
+  systemPrompt: string;
+  doNotMention: string[];
+  languages: string[];
 }
 
 export interface InspirationAccount {
   platform: Platform;
   handle: string;
   url: string;
-  notes: string; // what to draw from this account
+  notes: string;
 }
 
 export interface PlatformConnection {
   connected: boolean;
-  composioUserId?: string;
-  connectedAccountId?: string;
   handle?: string;
   displayName?: string;
   connectedAt?: number;
 }
 
-export interface PlatformConnections {
-  twitter: PlatformConnection;
-  facebook: PlatformConnection;
-  instagram: PlatformConnection;
-}
+export type PlatformConnections = Record<Platform, PlatformConnection>;
 
 export interface TimeSlot {
-  hour: number; // 0-23
-  minute: number; // 0-59
+  hour: number;
+  minute: number;
   enabled: boolean;
 }
 
@@ -75,15 +67,10 @@ export interface PlatformSchedule {
   enabled: boolean;
   postsPerDay: number;
   timeSlots: TimeSlot[];
-  contentMix: Record<ContentMixType, number>; // weights 0-100
+  contentMix: Record<ContentMixType, number>;
 }
 
-export interface PostingSchedule {
-  twitter: PlatformSchedule;
-  facebook: PlatformSchedule;
-  instagram: PlatformSchedule;
-  timezone: string;
-}
+export type PostingSchedule = Record<Platform, PlatformSchedule> & { timezone: string };
 
 export interface ContentRules {
   hashtagStrategy: 'none' | 'minimal' | 'moderate' | 'aggressive';
@@ -98,7 +85,7 @@ export interface ContentRules {
 
 export interface ImageLibraryItem {
   id: string;
-  url: string; // public URL served via /api/images?id=xxx
+  url: string;
   name: string;
   uploadedAt: number;
 }
@@ -146,10 +133,29 @@ export interface User {
   createdAt: number;
 }
 
-// Default values for new agent setup
 export const DEFAULT_PLATFORM_CONNECTION: PlatformConnection = {
   connected: false,
 };
+
+import { ALL_PLATFORMS } from './platform';
+
+function buildDefaultPlatformConnections(): PlatformConnections {
+  const obj: Partial<PlatformConnections> = {};
+  for (const p of ALL_PLATFORMS) obj[p] = { ...DEFAULT_PLATFORM_CONNECTION };
+  return obj as PlatformConnections;
+}
+
+function buildDefaultMaxPostLength(): Record<Platform, number> {
+  const obj: Partial<Record<Platform, number>> = {};
+  for (const p of ALL_PLATFORMS) obj[p] = 280;
+  obj.facebook = 2000;
+  obj.instagram = 2200;
+  obj.linkedin = 3000;
+  obj.tiktok = 2200;
+  obj.youtube = 5000;
+  obj.bluesky = 300;
+  return obj as Record<Platform, number>;
+}
 
 export const DEFAULT_PLATFORM_SCHEDULE: PlatformSchedule = {
   enabled: false,
@@ -173,11 +179,7 @@ export const DEFAULT_CONTENT_RULES: ContentRules = {
   mentionRules: '',
   brandGuidelines: '',
   forbiddenWords: [],
-  maxPostLength: {
-    twitter: 280,
-    facebook: 2000,
-    instagram: 2200,
-  },
+  maxPostLength: buildDefaultMaxPostLength(),
   includeEmojis: true,
   includeLinks: true,
 };
@@ -199,17 +201,10 @@ export const DEFAULT_AGENT_CONFIG: Omit<AgentConfig, 'id' | 'userId' | 'createdA
     languages: ['en'],
   },
   inspiration: [],
-  platforms: {
-    twitter: { ...DEFAULT_PLATFORM_CONNECTION },
-    facebook: { ...DEFAULT_PLATFORM_CONNECTION },
-    instagram: { ...DEFAULT_PLATFORM_CONNECTION },
-  },
-  schedule: {
-    twitter: { ...DEFAULT_PLATFORM_SCHEDULE },
-    facebook: { ...DEFAULT_PLATFORM_SCHEDULE },
-    instagram: { ...DEFAULT_PLATFORM_SCHEDULE },
+  platforms: buildDefaultPlatformConnections(),
+  schedule: Object.assign(buildDefaultPlatformConnections() as unknown as PostingSchedule, {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  },
+  }),
   rules: { ...DEFAULT_CONTENT_RULES },
   imageLibrary: [],
   aiSettings: {
@@ -220,7 +215,6 @@ export const DEFAULT_AGENT_CONFIG: Omit<AgentConfig, 'id' | 'userId' | 'createdA
   status: 'setup',
 };
 
-// Wizard step definitions
 export const WIZARD_STEPS = [
   { id: 'identity', title: 'Agent Identity', description: 'Name and personality basics' },
   { id: 'personality', title: 'Voice & Style', description: 'How your agent communicates' },

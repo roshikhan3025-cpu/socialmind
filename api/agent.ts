@@ -1,20 +1,16 @@
-// ============================================================
-// SocialMind — Agent API (consolidated: config, posts, post-now)
-// Routes via query param: ?action=config|posts|post-now
-// ============================================================
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { query, queryOne, queryAll } from '../lib/db.js';
-import { verifyToken } from './auth.js';
 import { generateContent, selectContentType } from '../lib/content-generator.js';
 import { postToPlatform } from '../lib/social-poster.js';
-import type { AgentConfig, Platform } from '../src/types/agent.js';
+import type { AgentConfig } from '../src/types/agent.js';
 import crypto from 'crypto';
+
+const ALL_PLATFORMS = ['twitter', 'facebook', 'instagram', 'linkedin', 'tiktok', 'youtube', 'bluesky', 'discord', 'threads'];
 
 function getUserId(_req: VercelRequest): string | null {
   return 'guest-user';
 }
 
-// ── Config CRUD ──
 async function handleConfig(req: VercelRequest, res: VercelResponse, userId: string) {
   switch (req.method) {
     case 'GET': {
@@ -56,7 +52,6 @@ async function handleConfig(req: VercelRequest, res: VercelResponse, userId: str
   }
 }
 
-// ── Posts History ──
 async function handlePosts(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
@@ -76,7 +71,6 @@ async function handlePosts(req: VercelRequest, res: VercelResponse, userId: stri
   });
 }
 
-// ── Post Now ──
 async function handlePostNow(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const { platform, content: customContent } = req.body as { platform?: string; content?: string };
@@ -90,36 +84,37 @@ async function handlePostNow(req: VercelRequest, res: VercelResponse, userId: st
   agent.status = agentRow.status as AgentConfig['status'];
   agent.id = agentRow.id;
 
-  // Inject DB connections
-  const connections = await queryAll<{ platform: string; connected: boolean; connected_account_id: string; handle: string; display_name: string }>(
-    'SELECT platform, connected, connected_account_id, handle, display_name FROM platform_connections WHERE user_id = $1 AND connected = true', [userId]);
+  const connections = await queryAll<{ platform: string; connected: boolean; handle: string; display_name: string }>(
+    'SELECT platform, connected, handle, display_name FROM platform_connections WHERE user_id = $1 AND connected = true', [userId]);
   for (const conn of connections) {
-    const p = conn.platform as Platform;
+    const p = conn.platform as keyof typeof agent.platforms;
     if (agent.platforms?.[p]) {
       agent.platforms[p].connected = true;
-      agent.platforms[p].connectedAccountId = conn.connected_account_id;
       agent.platforms[p].handle = conn.handle;
       agent.platforms[p].displayName = conn.display_name;
     }
   }
 
-  const targetPlatforms: Platform[] = platform
-    ? [platform as Platform]
-    : (['twitter', 'facebook', 'instagram'] as Platform[]).filter(p => agent.platforms?.[p]?.connected);
+  const targetPlatforms: string[] = platform
+    ? [platform]
+    : ALL_PLATFORMS.filter(p => agent.platforms?.[p as keyof typeof agent.platforms]?.connected);
 
   if (targetPlatforms.length === 0) return res.status(400).json({ error: 'No connected platforms found.' });
 
   const results: Array<{ platform: string; success: boolean; content: string; postUrl?: string; error?: string }> = [];
   for (const p of targetPlatforms) {
-    if (!agent.platforms?.[p]?.connected) { results.push({ platform: p, success: false, content: '', error: `${p} not connected` }); continue; }
+    if (!agent.platforms?.[p as keyof typeof agent.platforms]?.connected) {
+      results.push({ platform: p, success: false, content: '', error: `${p} not connected` });
+      continue;
+    }
     try {
       let postContent: string;
       if (customContent) { postContent = customContent; }
       else {
-        const contentType = selectContentType(agent.schedule?.[p]?.contentMix || { original: 100, reply: 0, quote: 0, thread: 0 });
-        postContent = (await generateContent(agent, p, contentType)).text;
+        const contentType = selectContentType(agent.schedule?.[p as keyof typeof agent.platforms]?.contentMix || { original: 100, reply: 0, quote: 0, thread: 0 });
+        postContent = (await generateContent(agent, p as any, contentType)).text;
       }
-      const postResult = await postToPlatform(postContent, p, agent);
+      const postResult = await postToPlatform(postContent, p, userId);
       await query(
         `INSERT INTO posts (id, user_id, agent_id, platform, content, post_type, post_url, external_post_id, status, error, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
@@ -132,7 +127,6 @@ async function handlePostNow(req: VercelRequest, res: VercelResponse, userId: st
   return res.status(200).json({ results });
 }
 
-// ── Router ──
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userId = getUserId(req);
   if (!userId) return res.status(401).json({ error: 'Unauthorized' });

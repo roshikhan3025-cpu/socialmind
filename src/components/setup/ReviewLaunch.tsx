@@ -1,6 +1,9 @@
 import { FiCheck, FiAlertCircle, FiZap } from "react-icons/fi";
-import { FaXTwitter, FaFacebook, FaInstagram } from "react-icons/fa6";
-import type { AgentConfig, Platform } from "../../types/agent";
+import { FaXTwitter, FaFacebook, FaInstagram, FaLinkedin, FaTiktok, FaYoutube, FaBluesky, FaDiscord } from "react-icons/fa6";
+import { FiMessageCircle } from "react-icons/fi";
+import type { AgentConfig } from "../../types/agent";
+import type { Platform } from "../../types/platform";
+import { ALL_PLATFORMS, PLATFORM_LABELS } from "../../types/platform";
 
 interface Props {
   config: AgentConfig;
@@ -8,12 +11,24 @@ interface Props {
   saving: boolean;
 }
 
+const PLATFORM_ICONS: Record<Platform, React.ReactNode> = {
+  twitter: <FaXTwitter />,
+  facebook: <FaFacebook />,
+  instagram: <FaInstagram />,
+  linkedin: <FaLinkedin />,
+  tiktok: <FaTiktok />,
+  youtube: <FaYoutube />,
+  bluesky: <FaBluesky />,
+  discord: <FaDiscord />,
+  threads: <FiMessageCircle />,
+};
+
 export function ReviewLaunch({ config, onLaunch, saving }: Props) {
-  const connectedPlatforms = (["twitter", "facebook", "instagram"] as Platform[]).filter(
+  const connectedPlatforms = ALL_PLATFORMS.filter(
     (p) => config.platforms?.[p]?.connected
   );
 
-  const enabledPlatforms = (["twitter", "facebook", "instagram"] as Platform[]).filter(
+  const enabledPlatforms = ALL_PLATFORMS.filter(
     (p) => config.schedule?.[p]?.enabled
   );
 
@@ -23,18 +38,9 @@ export function ReviewLaunch({ config, onLaunch, saving }: Props) {
   if (connectedPlatforms.length === 0) issues.push("No social platforms connected");
   if (enabledPlatforms.length === 0) issues.push("No platform schedules enabled");
 
-  const platformIcon = (p: Platform) => {
-    switch (p) {
-      case "twitter": return <FaXTwitter />;
-      case "facebook": return <FaFacebook />;
-      case "instagram": return <FaInstagram />;
-    }
-  };
-
   return (
     <div className="wizard-form">
       <div className="review-container">
-        {/* Agent Preview */}
         <div className="review-card">
           <h3 className="review-card-title">Agent Identity</h3>
           <div className="review-agent-preview">
@@ -53,7 +59,6 @@ export function ReviewLaunch({ config, onLaunch, saving }: Props) {
           </div>
         </div>
 
-        {/* Personality */}
         <div className="review-card">
           <h3 className="review-card-title">Personality</h3>
           <div className="review-grid">
@@ -78,19 +83,16 @@ export function ReviewLaunch({ config, onLaunch, saving }: Props) {
           </div>
         </div>
 
-        {/* Platforms */}
         <div className="review-card">
           <h3 className="review-card-title">Connected Platforms</h3>
           <div className="review-platforms">
-            {(["twitter", "facebook", "instagram"] as Platform[]).map((p) => {
+            {ALL_PLATFORMS.map((p) => {
               const connected = config.platforms?.[p]?.connected;
               const scheduled = config.schedule?.[p]?.enabled;
               return (
                 <div key={p} className={`review-platform ${connected ? "connected" : "disconnected"}`}>
-                  <span className="review-platform-icon">{platformIcon(p)}</span>
-                  <span className="review-platform-name">
-                    {p === "twitter" ? "X" : p.charAt(0).toUpperCase() + p.slice(1)}
-                  </span>
+                  <span className="review-platform-icon">{PLATFORM_ICONS[p]}</span>
+                  <span className="review-platform-name">{PLATFORM_LABELS[p]}</span>
                   <div className="review-platform-badges">
                     <span className={`review-badge ${connected ? "badge-ok" : "badge-warn"}`}>
                       {connected ? "Connected" : "Not connected"}
@@ -109,14 +111,13 @@ export function ReviewLaunch({ config, onLaunch, saving }: Props) {
           </div>
         </div>
 
-        {/* Inspiration */}
         {config.inspiration && config.inspiration.length > 0 && (
           <div className="review-card">
             <h3 className="review-card-title">Inspiration Accounts</h3>
             <div className="review-list">
               {config.inspiration.map((acc, i) => (
                 <div key={i} className="review-list-item">
-                  <span>{platformIcon(acc.platform)}</span>
+                  <span>{PLATFORM_ICONS[acc.platform]}</span>
                   <span>@{acc.handle}</span>
                   {acc.notes && <span className="review-muted">- {acc.notes}</span>}
                 </div>
@@ -125,7 +126,6 @@ export function ReviewLaunch({ config, onLaunch, saving }: Props) {
           </div>
         )}
 
-        {/* Content Rules Summary */}
         <div className="review-card">
           <h3 className="review-card-title">Content Rules</h3>
           <div className="review-grid">
@@ -144,7 +144,6 @@ export function ReviewLaunch({ config, onLaunch, saving }: Props) {
           </div>
         </div>
 
-        {/* Issues */}
         {issues.length > 0 && (
           <div className="review-issues">
             <h3><FiAlertCircle /> Issues to Fix</h3>
@@ -156,7 +155,6 @@ export function ReviewLaunch({ config, onLaunch, saving }: Props) {
           </div>
         )}
 
-        {/* Launch Button */}
         <div className="review-launch">
           <button
             className="btn btn-primary btn-large launch-btn"

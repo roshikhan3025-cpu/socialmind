@@ -1,5 +1,6 @@
 import { FiTrendingUp, FiActivity, FiCheckCircle, FiXCircle } from "react-icons/fi";
 import type { PostLog, AgentConfig } from "../../types/agent";
+import { ALL_PLATFORMS, PLATFORM_LABELS } from "../../types/platform";
 
 interface Props {
   posts: PostLog[];
@@ -12,7 +13,6 @@ export function Analytics({ posts, agent }: Props) {
   const failedPosts = posts.filter((p) => p.status === "failed").length;
   const successRate = totalPosts > 0 ? Math.round((successfulPosts / totalPosts) * 100) : 0;
 
-  // Platform breakdown
   const byPlatform = posts.reduce(
     (acc, p) => {
       acc[p.platform] = (acc[p.platform] || 0) + 1;
@@ -21,20 +21,16 @@ export function Analytics({ posts, agent }: Props) {
     {} as Record<string, number>
   );
 
-  // Posts today
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const postsToday = posts.filter((p) => p.createdAt >= today.getTime()).length;
 
-  // Posts this week
   const weekAgo = new Date();
   weekAgo.setDate(weekAgo.getDate() - 7);
   const postsThisWeek = posts.filter((p) => p.createdAt >= weekAgo.getTime()).length;
 
   const connectedCount = agent?.platforms
-    ? (["twitter", "facebook", "instagram"] as const).filter(
-        (p) => agent.platforms?.[p]?.connected
-      ).length
+    ? ALL_PLATFORMS.filter((p) => agent.platforms?.[p]?.connected).length
     : 0;
 
   return (
@@ -89,7 +85,7 @@ export function Analytics({ posts, agent }: Props) {
           {Object.entries(byPlatform).map(([platform, count]) => (
             <div key={platform} className="breakdown-bar">
               <div className="breakdown-label">
-                <span>{platform === "twitter" ? "X" : platform.charAt(0).toUpperCase() + platform.slice(1)}</span>
+                <span>{PLATFORM_LABELS[platform as keyof typeof PLATFORM_LABELS] || platform}</span>
                 <span>{count} posts</span>
               </div>
               <div className="breakdown-track">
@@ -113,7 +109,7 @@ export function Analytics({ posts, agent }: Props) {
         </div>
         <div className="info-item">
           <span className="info-label">Platforms Connected</span>
-          <span className="info-value">{connectedCount}/3</span>
+          <span className="info-value">{connectedCount}/{ALL_PLATFORMS.length}</span>
         </div>
         <div className="info-item">
           <span className="info-label">Agent Status</span>

@@ -15,7 +15,7 @@
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@types/three": "^0.183.1",
-    "composio-core": "^0.5.39",
+
     "dompurify": "^3.3.3",
     "google-auth-library": "^10.6.2",
     "marked": "^17.0.5",

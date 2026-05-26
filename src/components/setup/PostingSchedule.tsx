@@ -1,21 +1,29 @@
-import { FaXTwitter, FaFacebook, FaInstagram } from "react-icons/fa6";
+import { FaXTwitter, FaFacebook, FaInstagram, FaLinkedin, FaTiktok, FaYoutube, FaBluesky, FaDiscord } from "react-icons/fa6";
+import { FiMessageCircle } from "react-icons/fi";
 import { FiPlus, FiX } from "react-icons/fi";
 import type {
   PostingSchedule as PostingScheduleType,
-  Platform,
   PlatformSchedule,
   TimeSlot,
 } from "../../types/agent";
+import type { Platform } from "../../types/platform";
+import { ALL_PLATFORMS, PLATFORM_LABELS } from "../../types/platform";
 
 interface Props {
   schedule: PostingScheduleType;
   onChange: (schedule: PostingScheduleType) => void;
 }
 
-const PLATFORM_META: Record<Platform, { name: string; icon: React.ReactNode }> = {
-  twitter: { name: "X (Twitter)", icon: <FaXTwitter /> },
-  facebook: { name: "Facebook", icon: <FaFacebook /> },
-  instagram: { name: "Instagram", icon: <FaInstagram /> },
+const PLATFORM_ICONS: Record<Platform, React.ReactNode> = {
+  twitter: <FaXTwitter />,
+  facebook: <FaFacebook />,
+  instagram: <FaInstagram />,
+  linkedin: <FaLinkedin />,
+  tiktok: <FaTiktok />,
+  youtube: <FaYoutube />,
+  bluesky: <FaBluesky />,
+  discord: <FaDiscord />,
+  threads: <FiMessageCircle />,
 };
 
 function formatTime(hour: number, minute: number): string {
@@ -39,7 +47,6 @@ function PlatformScheduleEditor({
   schedule: PlatformSchedule;
   onChange: (schedule: PlatformSchedule) => void;
 }) {
-  const meta = PLATFORM_META[platform];
 
   const addTimeSlot = () => {
     const newSlot: TimeSlot = { hour: 12, minute: 0, enabled: true };
@@ -75,8 +82,8 @@ function PlatformScheduleEditor({
     <div className={`schedule-platform-card ${schedule.enabled ? "enabled" : ""}`}>
       <div className="schedule-platform-header">
         <div className="schedule-platform-label">
-          <span className="schedule-platform-icon">{meta.icon}</span>
-          <span>{meta.name}</span>
+          <span className="schedule-platform-icon">{PLATFORM_ICONS[platform]}</span>
+          <span>{PLATFORM_LABELS[platform]}</span>
         </div>
         <label className="toggle-switch">
           <input
@@ -201,13 +208,13 @@ function getTimezones(): string[] {
 const TIMEZONES = getTimezones();
 
 export function PostingSchedule({ schedule, onChange }: Props) {
-  // Ensure schedule has all platform keys
+  const defaultSchedule = { enabled: false, postsPerDay: 1, timeSlots: [], contentMix: { original: 100, reply: 0, quote: 0, thread: 0 } };
   const safeSchedule: PostingScheduleType = {
-    twitter: schedule?.twitter || { enabled: false, postsPerDay: 1, timeSlots: [], contentMix: { original: 100, reply: 0, quote: 0, thread: 0 } },
-    facebook: schedule?.facebook || { enabled: false, postsPerDay: 1, timeSlots: [], contentMix: { original: 100, reply: 0, quote: 0, thread: 0 } },
-    instagram: schedule?.instagram || { enabled: false, postsPerDay: 1, timeSlots: [], contentMix: { original: 100, reply: 0, quote: 0, thread: 0 } },
     timezone: schedule?.timezone || "UTC",
-  };
+  } as PostingScheduleType;
+  for (const p of ALL_PLATFORMS) {
+    (safeSchedule as Record<string, unknown>)[p] = (schedule as Record<string, unknown>)?.[p] || { ...defaultSchedule };
+  }
 
   return (
     <div className="wizard-form">
@@ -233,12 +240,15 @@ export function PostingSchedule({ schedule, onChange }: Props) {
         </div>
 
         <div className="schedule-platforms">
-          {(["twitter", "facebook", "instagram"] as Platform[]).map((platform) => (
+          {ALL_PLATFORMS.map((platform) => (
             <PlatformScheduleEditor
               key={platform}
               platform={platform}
               schedule={safeSchedule[platform]}
-              onChange={(updated) => onChange({ ...safeSchedule, [platform]: updated })}
+              onChange={(updated) => {
+                const next = { ...safeSchedule, [platform]: updated } as PostingScheduleType;
+                onChange(next);
+              }}
             />
           ))}
         </div>

@@ -1,178 +1,181 @@
-// ============================================================
-// SocialMind — Social API (consolidated: connect, disconnect, status, callback)
-// Routes via query param: ?action=connect|disconnect|status|callback
-// ============================================================
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { query, queryOne, queryAll } from '../lib/db.js';
-import { verifyToken } from './auth.js';
 import crypto from 'crypto';
 
-const COMPOSIO_API_BASE = 'https://backend.composio.dev/api/v3.1';
-const PLATFORMS = ['twitter', 'facebook', 'instagram'] as const;
-const INTEGRATION_MAP: Record<string, string> = { twitter: 'twitter', facebook: 'facebook', instagram: 'instagram' };
-
-async function composioRequest(path: string, options: RequestInit = {}) {
-  const apiKey = process.env.COMPOSIO_API_KEY;
-  if (!apiKey) throw new Error('COMPOSIO_API_KEY not configured');
-  const response = await fetch(`${COMPOSIO_API_BASE}${path}`, {
-    ...options, headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, ...options.headers },
-  });
-  if (!response.ok) { const body = await response.text(); throw new Error(`Composio API error (${response.status}): ${body}`); }
-  return response.json();
-}
+const ZERNIO_API_BASE = 'https://zernio.com/api/v1';
+const ALL_PLATFORMS = ['twitter', 'facebook', 'instagram', 'linkedin', 'tiktok', 'youtube', 'bluesky', 'discord', 'threads'];
 
 function getUserId(_req: VercelRequest): string | null {
   return 'guest-user';
 }
 
-// ── Connect ──
+function getApiKey(): string {
+  const key = process.env.ZERNIO_API_KEY;
+  if (!key) throw new Error('ZERNIO_API_KEY not configured');
+  return key;
+}
+
+async function zernioFetch(path: string, options: RequestInit = {}): Promise<any> {
+  const apiKey = getApiKey();
+  const url = path.startsWith('http') ? path : `${ZERNIO_API_BASE}${path}`;
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      ...(options.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Zernio API error (${res.status}): ${body}`);
+  }
+  return res.json();
+}
+
+async function getOrCreateZernioProfile(userId: string): Promise<string> {
+  const row = await queryOne<{ config: unknown }>(
+    'SELECT config FROM agents WHERE user_id = $1', [userId]
+  );
+  if (row) {
+    const config = typeof row.config === 'string' ? JSON.parse(row.config) : row.config;
+    if (config.zernioProfileId) return config.zernioProfileId;
+  }
+
+  const data = await zernioFetch('/profiles', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: `SocialMind Agent (${userId})`,
+      description: 'Auto-managed by SocialMind',
+    }),
+  });
+
+  const profileId = data.profile?._id || data._id;
+  if (!profileId) throw new Error('Failed to create Zernio profile');
+
+  if (row) {
+    await query(
+      `UPDATE agents SET config = jsonb_set(COALESCE(config::jsonb, '{}'::jsonb), '{zernioProfileId}', to_jsonb($1::text)) WHERE user_id = $2`,
+      [profileId, userId]
+    );
+  }
+
+  return profileId;
+}
+
+async function listZernioAccounts(): Promise<Array<{ _id: string; platform: string; name: string; handle: string }>> {
+  const data = await zernioFetch('/accounts');
+  return data.accounts || [];
+}
+
 async function handleConnect(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const { platform } = req.body;
-  if (!platform || !INTEGRATION_MAP[platform]) return res.status(400).json({ error: 'Invalid platform' });
-  if (!process.env.COMPOSIO_API_KEY) return res.status(500).json({ error: 'Composio API key not configured' });
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  let authConfigId: string | null = null;
-  try {
-    const authConfigsRes = await composioRequest(`/auth_configs?toolkitSlug=${INTEGRATION_MAP[platform]}`);
-    const items = authConfigsRes.items || [];
-    if (items.length > 0) authConfigId = items[0].id;
-  } catch (e) {
-    console.error('Error finding auth config:', e);
-  }
-
-  if (!authConfigId) {
-    return res.status(400).json({ error: `No auth config found for ${platform}. Please enable it in Composio dashboard.` });
-  }
-
-  const redirectUrl = `${appUrl}/api/social?action=callback&platform=${platform}&userId=${userId}`;
-  const connectPayload: Record<string, unknown> = { 
-    auth_config_id: authConfigId, 
-    user_id: userId, 
-    callback_url: redirectUrl, 
-    data: {} 
-  };
-
-  const connectRes = await composioRequest('/connected_accounts/link', { method: 'POST', body: JSON.stringify(connectPayload) });
-  const authUrl = connectRes.redirect_url || connectRes.url || null;
-  const connectedAccountId = connectRes.connected_account_id || connectRes.id || null;
-  if (!authUrl) return res.status(500).json({ error: `Composio did not return an authorization URL for ${platform}` });
-
-  await query(
-    `INSERT INTO platform_connections (id, user_id, platform, connected, connected_account_id, composio_user_id, connection_status, created_at)
-     VALUES ($1, $2, $3, false, $4, $5, 'pending', $6)
-     ON CONFLICT (user_id, platform) DO UPDATE SET connected_account_id = $4, connection_status = 'pending', connected = false`,
-    [crypto.randomUUID(), userId, platform, connectedAccountId, userId, Date.now()]);
-
-  return res.status(200).json({ authUrl, connectionId: connectedAccountId, platform });
-}
-
-// ── Disconnect ──
-async function handleDisconnect(req: VercelRequest, res: VercelResponse, userId: string) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const { platform } = req.body;
-  if (!platform || !INTEGRATION_MAP[platform]) return res.status(400).json({ error: 'Invalid platform' });
-
-  const row = await queryOne<{ connected_account_id: string }>(
-    'SELECT connected_account_id FROM platform_connections WHERE user_id = $1 AND platform = $2', [userId, platform]);
-  if (row?.connected_account_id && process.env.COMPOSIO_API_KEY) {
-    try { await fetch(`${COMPOSIO_API_BASE}/connected_accounts/${row.connected_account_id}`, { method: 'DELETE', headers: { 'x-api-key': process.env.COMPOSIO_API_KEY } }); } catch { /* non-fatal */ }
-  }
-  await query('UPDATE platform_connections SET connected = false, connected_account_id = NULL, handle = NULL, display_name = NULL, connection_status = NULL, connected_at = NULL WHERE user_id = $1 AND platform = $2', [userId, platform]);
-  return res.status(200).json({ success: true, platform });
-}
-
-// ── Status ──
-async function handleStatus(req: VercelRequest, res: VercelResponse, userId: string) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-  const rows = await queryAll<{ platform: string; connected: boolean; connected_account_id: string; handle: string; display_name: string; connection_status: string; connected_at: number }>(
-    'SELECT * FROM platform_connections WHERE user_id = $1', [userId]);
-
-  const result: Record<string, unknown> = {};
-  for (const p of PLATFORMS) {
-    const row = rows.find(r => r.platform === p);
-    result[p] = row ? { connected: row.connected, connectedAccountId: row.connected_account_id, handle: row.handle, displayName: row.display_name, connectionStatus: row.connection_status, connectedAt: row.connected_at ? Number(row.connected_at) : undefined } : { connected: false };
-  }
-
-  if (req.query.live === 'true' && process.env.COMPOSIO_API_KEY) {
-    for (const platform of PLATFORMS) {
-      try {
-        const response = await fetch(`${COMPOSIO_API_BASE}/connected_accounts?user_id=${userId}&toolkit_slugs=${platform}&status=ACTIVE&limit=1`,
-          { headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.COMPOSIO_API_KEY! } });
-        if (response.ok) {
-          const data = await response.json();
-          const accounts = data.items || [];
-          if (accounts.length > 0) {
-            const acct = accounts[0];
-            const live = { connected: true, connectedAccountId: acct.id, handle: acct.connection_params?.userName || acct.connectionParams?.userName || undefined, displayName: acct.connection_params?.displayName || acct.connectionParams?.displayName || undefined, connectionStatus: 'ACTIVE' };
-            result[platform] = { ...(result[platform] as object), ...live };
-            await query(
-              `INSERT INTO platform_connections (id, user_id, platform, connected, connected_account_id, handle, display_name, connection_status, connected_at, created_at)
-               VALUES ($1, $2, $3, true, $4, $5, $6, 'ACTIVE', $7, $7)
-               ON CONFLICT (user_id, platform) DO UPDATE SET connected = true, connected_account_id = $4, handle = $5, display_name = $6, connection_status = 'ACTIVE', connected_at = $7`,
-              [crypto.randomUUID(), userId, platform, live.connectedAccountId, live.handle || null, live.displayName || null, Date.now()]);
-          }
-        }
-      } catch (e) {
-        console.error(`Status check failed for ${platform}:`, e);
-      }
-    }
-  }
-  return res.status(200).json(result);
-}
-
-// ── Callback (OAuth redirect from Composio) ──
-async function handleCallback(req: VercelRequest, res: VercelResponse) {
-  const { platform, userId } = req.query;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  if (!platform || !userId) return res.redirect(`${appUrl}/?error=missing_params`);
-  const platformStr = String(platform), userIdStr = String(userId);
+  if (!platform || !ALL_PLATFORMS.includes(platform)) return res.status(400).json({ error: 'Invalid platform' });
+  if (!process.env.ZERNIO_API_KEY) return res.status(500).json({ error: 'ZERNIO_API_KEY not configured' });
 
   try {
-    const pending = await queryOne<{ connected_account_id: string }>(
-      'SELECT connected_account_id FROM platform_connections WHERE user_id = $1 AND platform = $2', [userIdStr, platformStr]);
-    let connectedAccountId = pending?.connected_account_id || null;
-    let connectionStatus = 'unknown', accountHandle = '', accountDisplayName = '';
+    const profileId = await getOrCreateZernioProfile(userId);
 
-    if (connectedAccountId) {
-      try {
-        const accountRes = await composioRequest(`/connected_accounts/${connectedAccountId}`);
-        connectionStatus = accountRes.status || 'unknown';
-        accountHandle = accountRes.connection_params?.userName || accountRes.connectionParams?.userName || '';
-        accountDisplayName = accountRes.connection_params?.displayName || accountRes.connectionParams?.displayName || '';
-      } catch { /* fallback below */ }
-    }
-    if (!connectedAccountId || connectionStatus === 'unknown') {
-      try {
-        const accountsRes = await composioRequest(`/connected_accounts?user_id=${userIdStr}&toolkit_slugs=${platformStr}&status=ACTIVE`);
-        const accounts = accountsRes.items || [];
-        if (accounts.length > 0) {
-          const latest = accounts[accounts.length - 1];
-          connectedAccountId = latest.id;
-          connectionStatus = 'ACTIVE'; 
-          accountHandle = latest.connection_params?.userName || latest.connectionParams?.userName || ''; 
-          accountDisplayName = latest.connection_params?.displayName || latest.connectionParams?.displayName || '';
-        }
-      } catch { /* ignore */ }
-    }
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5173';
 
-    const isConnected = ['ACTIVE', 'active', 'initiated'].includes(connectionStatus);
-    await query(`UPDATE platform_connections SET connected = $1, connected_account_id = $2, handle = $3, display_name = $4, connection_status = $5, connected_at = $6 WHERE user_id = $7 AND platform = $8`,
-      [isConnected, connectedAccountId, accountHandle || null, accountDisplayName || null, connectionStatus, isConnected ? Date.now() : null, userIdStr, platformStr]);
+    const data = await zernioFetch(`/connect/${platform}?profileId=${profileId}&redirect_url=${encodeURIComponent(`${appUrl}/api/social?action=callback&platform=${platform}`)}`);
 
-    return res.redirect(isConnected ? `${appUrl}/?connected=${platformStr}` : `${appUrl}/?error=connection_pending&platform=${platformStr}`);
+    const authUrl = data.authUrl || data.url;
+    if (!authUrl) return res.status(500).json({ error: 'Zernio did not return an authorization URL' });
+
+    const zernioState = data.state || crypto.randomBytes(32).toString('hex');
+    await query(
+      `INSERT INTO oauth_states (state, user_id, platform, created_at) VALUES ($1, $2, $3, $4)`,
+      [zernioState, userId, platform, Date.now()]
+    );
+
+    return res.status(200).json({ authUrl, platform });
   } catch (error) {
-    console.error('Social callback error:', error);
+    console.error('Zernio connect error:', error);
+    return res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to connect platform' });
+  }
+}
+
+async function handleCallback(req: VercelRequest, res: VercelResponse) {
+  const { platform, state, error: oauthError } = req.query;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5173';
+
+  if (oauthError) return res.redirect(`${appUrl}/?error=${oauthError}`);
+  if (!platform || !state) return res.redirect(`${appUrl}/?error=missing_params`);
+
+  const platformStr = String(platform);
+  const stateStr = String(state);
+
+  try {
+    const stateRow = await queryOne<{ user_id: string }>(
+      'SELECT user_id FROM oauth_states WHERE state = $1 AND platform = $2',
+      [stateStr, platformStr]
+    );
+    if (!stateRow) return res.redirect(`${appUrl}/?error=invalid_state`);
+
+    await query('DELETE FROM oauth_states WHERE state = $1', [stateStr]);
+
+    const accounts = await listZernioAccounts();
+    const connected = accounts.find((a: any) => a.platform === platformStr);
+
+    const id = crypto.randomUUID();
+    const now = Date.now();
+
+    await query(
+      `INSERT INTO platform_connections (id, user_id, platform, connected, zernio_account_id, handle, display_name, connected_at, created_at)
+       VALUES ($1, $2, $3, true, $4, $5, $6, $7, $7)
+       ON CONFLICT (user_id, platform) DO UPDATE SET
+         connected = true, zernio_account_id = $4, handle = $5, display_name = $6, connected_at = $7`,
+      [id, stateRow.user_id, platformStr,
+       connected?._id || null, connected?.handle || null, connected?.name || null, now]
+    );
+
+    return res.redirect(`${appUrl}/?connected=${platformStr}`);
+  } catch (error) {
+    console.error('Zernio callback error:', error);
     return res.redirect(`${appUrl}/?error=connection_failed&platform=${platformStr}`);
   }
 }
 
-// ── Router ──
+async function handleDisconnect(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const { platform } = req.body;
+  if (!platform || !ALL_PLATFORMS.includes(platform)) return res.status(400).json({ error: 'Invalid platform' });
+
+  await query(
+    'UPDATE platform_connections SET connected = false, zernio_account_id = NULL, handle = NULL, display_name = NULL, avatar_url = NULL, connected_at = NULL WHERE user_id = $1 AND platform = $2',
+    [userId, platform]
+  );
+
+  return res.status(200).json({ success: true, platform });
+}
+
+async function handleStatus(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const rows = await queryAll<{
+    platform: string; connected: boolean; handle: string; display_name: string; avatar_url: string; connected_at: number;
+  }>('SELECT platform, connected, handle, display_name, avatar_url, connected_at FROM platform_connections WHERE user_id = $1', [userId]);
+
+  const result: Record<string, unknown> = {};
+  for (const p of ALL_PLATFORMS) {
+    const row = rows.find(r => r.platform === p);
+    result[p] = row
+      ? {
+          connected: row.connected,
+          handle: row.handle,
+          displayName: row.display_name,
+          avatarUrl: row.avatar_url,
+          connectedAt: row.connected_at ? Number(row.connected_at) : undefined,
+        }
+      : { connected: false };
+  }
+  return res.status(200).json(result);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = req.query.action as string || 'status';
 
-  // Callback doesn't need user auth (it's a redirect from Composio)
   if (action === 'callback') return handleCallback(req, res);
 
   const userId = getUserId(req);

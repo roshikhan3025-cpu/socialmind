@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { FiPlus, FiTrash2, FiLink } from "react-icons/fi";
-import { FaXTwitter, FaFacebook, FaInstagram } from "react-icons/fa6";
-import type { InspirationAccount, Platform } from "../../types/agent";
+import { FaXTwitter, FaFacebook, FaInstagram, FaLinkedin, FaTiktok, FaYoutube, FaBluesky, FaDiscord } from "react-icons/fa6";
+import { FiMessageCircle } from "react-icons/fi";
+import type { InspirationAccount } from "../../types/agent";
+import type { Platform } from "../../types/platform";
+import { ALL_PLATFORMS, PLATFORM_LABELS } from "../../types/platform";
 
 interface Props {
   accounts: InspirationAccount[];
@@ -20,7 +23,11 @@ export function InspirationAccounts({ accounts, onChange }: Props) {
     const account: InspirationAccount = {
       platform,
       handle: handle.trim().replace(/^@/, ""),
-      url: url.trim() || `https://${platform === "twitter" ? "x.com" : platform === "facebook" ? "facebook.com" : "instagram.com"}/${handle.trim().replace(/^@/, "")}`,
+      url: url.trim() || (() => {
+        const domains: Record<string, string> = { twitter: 'x.com', threads: 'threads.net', bluesky: 'bsky.app', discord: 'discord.com/users' };
+        const domain = domains[platform] || `${platform}.com`;
+        return `https://${domain}/${handle.trim().replace(/^@/, "")}`;
+      })(),
       notes: notes.trim(),
     };
 
@@ -34,12 +41,16 @@ export function InspirationAccounts({ accounts, onChange }: Props) {
     onChange(accounts.filter((_, i) => i !== index));
   };
 
-  const platformIcon = (p: Platform) => {
-    switch (p) {
-      case "twitter": return <FaXTwitter />;
-      case "facebook": return <FaFacebook />;
-      case "instagram": return <FaInstagram />;
-    }
+  const PLATFORM_ICONS: Record<Platform, React.ReactNode> = {
+    twitter: <FaXTwitter />,
+    facebook: <FaFacebook />,
+    instagram: <FaInstagram />,
+    linkedin: <FaLinkedin />,
+    tiktok: <FaTiktok />,
+    youtube: <FaYoutube />,
+    bluesky: <FaBluesky />,
+    discord: <FaDiscord />,
+    threads: <FiMessageCircle />,
   };
 
   return (
@@ -56,15 +67,15 @@ export function InspirationAccounts({ accounts, onChange }: Props) {
             <div className="form-group flex-1">
               <label className="form-label">Platform</label>
               <div className="platform-selector">
-                {(["twitter", "facebook", "instagram"] as Platform[]).map((p) => (
+                {ALL_PLATFORMS.map((p) => (
                   <button
                     key={p}
                     className={`platform-btn ${platform === p ? "selected" : ""}`}
                     onClick={() => setPlatform(p)}
                     type="button"
                   >
-                    {platformIcon(p)}
-                    <span>{p === "twitter" ? "X" : p.charAt(0).toUpperCase() + p.slice(1)}</span>
+                    {PLATFORM_ICONS[p]}
+                    <span>{PLATFORM_LABELS[p]}</span>
                   </button>
                 ))}
               </div>
@@ -120,7 +131,7 @@ export function InspirationAccounts({ accounts, onChange }: Props) {
               <div key={index} className="inspiration-card">
                 <div className="inspiration-card-left">
                   <span className="inspiration-platform">
-                    {platformIcon(account.platform)}
+                    {PLATFORM_ICONS[account.platform]}
                   </span>
                   <div className="inspiration-info">
                     <span className="inspiration-handle">@{account.handle}</span>
