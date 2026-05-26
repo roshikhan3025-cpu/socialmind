@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { query, queryOne, queryAll } from '../lib/db.js';
+import { query, queryOne, queryAll, ensureSchema } from '../lib/db.js';
 import { generateContent, selectContentType } from '../lib/content-generator.js';
 import { postToPlatform } from '../lib/social-poster.js';
 import type { AgentConfig } from '../src/types/agent.js';
@@ -128,6 +128,7 @@ async function handlePostNow(req: VercelRequest, res: VercelResponse, userId: st
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  await ensureSchema();
   const userId = getUserId(req);
   if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 

@@ -6,6 +6,7 @@ import { neon } from '@neondatabase/serverless';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _sql: any = null;
+let schemaEnsured = false;
 
 function getSql() {
   if (_sql) return _sql;
@@ -15,6 +16,53 @@ function getSql() {
   }
   _sql = neon(databaseUrl);
   return _sql;
+}
+
+export async function ensureSchema() {
+  if (schemaEnsured) return;
+  await query(`CREATE TABLE IF NOT EXISTS agents (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    config JSONB NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'setup',
+    created_at BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT,
+    updated_at BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT,
+    UNIQUE(user_id)
+  )`);
+  await query(`CREATE TABLE IF NOT EXISTS posts (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    agent_id TEXT,
+    platform TEXT NOT NULL,
+    content TEXT NOT NULL,
+    post_type TEXT NOT NULL DEFAULT 'original',
+    post_url TEXT,
+    external_post_id TEXT,
+    engagement JSONB DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'pending',
+    error TEXT,
+    created_at BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
+  )`);
+  await query(`CREATE TABLE IF NOT EXISTS platform_connections (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    connected BOOLEAN NOT NULL DEFAULT false,
+    zernio_account_id TEXT,
+    handle TEXT,
+    display_name TEXT,
+    avatar_url TEXT,
+    connected_at BIGINT,
+    created_at BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT,
+    UNIQUE(user_id, platform)
+  )`);
+  await query(`CREATE TABLE IF NOT EXISTS oauth_states (
+    state TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    created_at BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
+  )`);
+  schemaEnsured = true;
 }
 
 /**

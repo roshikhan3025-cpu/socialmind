@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { query, queryAll, queryOne } from '../lib/db.js';
+import { query, queryAll, queryOne, ensureSchema } from '../lib/db.js';
 import type { AgentConfig } from '../src/types/agent.js';
 import { generateContent, selectContentType } from '../lib/content-generator.js';
 import { postToPlatform } from '../lib/social-poster.js';
@@ -31,6 +31,7 @@ async function buildAgentConfig(agentRow: { user_id: string; config: unknown; st
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  await ensureSchema();
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const cronSecret = process.env.CRON_SECRET;

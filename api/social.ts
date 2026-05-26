@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { query, queryOne, queryAll } from '../lib/db.js';
+import { query, queryOne, queryAll, ensureSchema } from '../lib/db.js';
 import crypto from 'crypto';
 
 const ZERNIO_API_BASE = 'https://zernio.com/api/v1';
@@ -34,9 +34,21 @@ async function zernioFetch(path: string, options: RequestInit = {}): Promise<any
 }
 
 async function getOrCreateZernioProfile(userId: string): Promise<string> {
-  const row = await queryOne<{ config: unknown }>(
-    'SELECT config FROM agents WHERE user_id = $1', [userId]
+  let row = await queryOne<{ id: string; config: unknown }>(
+    'SELECT id, config FROM agents WHERE user_id = $1', [userId]
   );
+
+  if (!row) {
+    const agentId = crypto.randomUUID();
+    await query(
+      `INSERT INTO agents (id, user_id, config, status, created_at, updated_at) VALUES ($1, $2, '{}'::jsonb, 'setup', $3, $3)`,
+      [agentId, userId, Date.now()]
+    );
+    row = await queryOne<{ id: string; config: unknown }>(
+      'SELECT id, config FROM agents WHERE user_id = $1', [userId]
+    );
+  }
+
   if (row) {
     const config = typeof row.config === 'string' ? JSON.parse(row.config) : row.config;
     if (config.zernioProfileId) return config.zernioProfileId;
@@ -174,6 +186,8 @@ async function handleStatus(req: VercelRequest, res: VercelResponse, userId: str
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  await ensureSchema();
+
   const action = req.query.action as string || 'status';
 
   if (action === 'callback') return handleCallback(req, res);
