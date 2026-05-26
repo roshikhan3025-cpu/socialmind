@@ -30,3 +30,9 @@ pnpm-debug.log*
 
 # Vercel
 .vercel
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
