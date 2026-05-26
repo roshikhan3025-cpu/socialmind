@@ -98,16 +98,17 @@ async function handleConnect(req: VercelRequest, res: VercelResponse, userId: st
     const profileId = await getOrCreateZernioProfile(userId);
 
     const appUrl = getAppUrl(req);
+    const state = crypto.randomBytes(32).toString('hex');
+    const callbackUrl = `${appUrl}/api/social?action=callback&platform=${platform}&state=${state}`;
 
-    const data = await zernioFetch(`/connect/${platform}?profileId=${profileId}&redirect_url=${encodeURIComponent(`${appUrl}/api/social?action=callback&platform=${platform}`)}`);
+    const data = await zernioFetch(`/connect/${platform}?profileId=${profileId}&state=${state}&redirect_url=${encodeURIComponent(callbackUrl)}`);
 
     const authUrl = data.authUrl || data.url;
     if (!authUrl) return res.status(500).json({ error: 'Zernio did not return an authorization URL' });
 
-    const zernioState = data.state || crypto.randomBytes(32).toString('hex');
     await query(
       `INSERT INTO oauth_states (state, user_id, platform, created_at) VALUES ($1, $2, $3, $4)`,
-      [zernioState, userId, platform, Date.now()]
+      [state, userId, platform, Date.now()]
     );
 
     return res.status(200).json({ authUrl, platform });
