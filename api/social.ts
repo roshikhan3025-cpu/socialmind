@@ -9,6 +9,14 @@ function getUserId(_req: VercelRequest): string | null {
   return 'guest-user';
 }
 
+function getAppUrl(req: VercelRequest): string {
+  const origin = req.headers.origin;
+  if (origin) return origin;
+  const host = req.headers.host;
+  if (host) return `https://${host}`;
+  return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5173';
+}
+
 function getApiKey(): string {
   const key = process.env.ZERNIO_API_KEY;
   if (!key) throw new Error('ZERNIO_API_KEY not configured');
@@ -89,7 +97,7 @@ async function handleConnect(req: VercelRequest, res: VercelResponse, userId: st
   try {
     const profileId = await getOrCreateZernioProfile(userId);
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5173';
+    const appUrl = getAppUrl(req);
 
     const data = await zernioFetch(`/connect/${platform}?profileId=${profileId}&redirect_url=${encodeURIComponent(`${appUrl}/api/social?action=callback&platform=${platform}`)}`);
 
@@ -111,7 +119,7 @@ async function handleConnect(req: VercelRequest, res: VercelResponse, userId: st
 
 async function handleCallback(req: VercelRequest, res: VercelResponse) {
   const { platform, state, error: oauthError } = req.query;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5173';
+  const appUrl = getAppUrl(req);
 
   if (oauthError) return res.redirect(`${appUrl}/?error=${oauthError}`);
   if (!platform || !state) return res.redirect(`${appUrl}/?error=missing_params`);
