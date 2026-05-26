@@ -3,7 +3,7 @@ import { FaXTwitter, FaFacebook, FaInstagram, FaLinkedin, FaTiktok, FaYoutube, F
 import { FiMessageCircle } from "react-icons/fi";
 import type { AgentConfig } from "../../types/agent";
 import type { Platform } from "../../types/platform";
-import { ALL_PLATFORMS, PLATFORM_LABELS } from "../../types/platform";
+import { ALL_PLATFORMS } from "../../types/platform";
 
 interface Props {
   agent: AgentConfig;

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { triggerAutoPost, getPostHistory } from "../utils/api";
 import type { AgentConfig, PostLog } from "../types/agent";
-import type { Platform } from "../types/platform";
 import { ALL_PLATFORMS } from "../types/platform";
 
 interface AutoPostState {

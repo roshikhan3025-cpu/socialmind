@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { FiPlus, FiX } from "react-icons/fi";
 import type { ContentRules as ContentRulesType } from "../../types/agent";
-import type { Platform } from "../../types/platform";
 import { ALL_PLATFORMS, PLATFORM_LABELS } from "../../types/platform";
 
 interface Props {
